@@ -14,16 +14,293 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_log: {
+        Row: {
+          acao: string
+          created_at: string
+          dados: Json | null
+          id: number
+          registro_id: string | null
+          tabela: string
+          user_id: string | null
+        }
+        Insert: {
+          acao: string
+          created_at?: string
+          dados?: Json | null
+          id?: number
+          registro_id?: string | null
+          tabela: string
+          user_id?: string | null
+        }
+        Update: {
+          acao?: string
+          created_at?: string
+          dados?: Json | null
+          id?: number
+          registro_id?: string | null
+          tabela?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      monthly_closings: {
+        Row: {
+          ano: number
+          closed_at: string
+          closed_by: string | null
+          id: string
+          mes: number
+          observacoes: string | null
+          responsavel: string | null
+          school_id: string
+          snapshot: Json
+        }
+        Insert: {
+          ano: number
+          closed_at?: string
+          closed_by?: string | null
+          id?: string
+          mes: number
+          observacoes?: string | null
+          responsavel?: string | null
+          school_id: string
+          snapshot?: Json
+        }
+        Update: {
+          ano?: number
+          closed_at?: string
+          closed_by?: string | null
+          id?: string
+          mes?: number
+          observacoes?: string | null
+          responsavel?: string | null
+          school_id?: string
+          snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_closings_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          data: string
+          destino: string | null
+          fornecedor: string | null
+          id: string
+          nota_fiscal: string | null
+          observacoes: string | null
+          origem: Database["public"]["Enums"]["origem_tipo"]
+          product_id: string
+          quantidade: number
+          responsavel: string | null
+          school_id: string
+          tipo: Database["public"]["Enums"]["mov_tipo"]
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          data: string
+          destino?: string | null
+          fornecedor?: string | null
+          id?: string
+          nota_fiscal?: string | null
+          observacoes?: string | null
+          origem: Database["public"]["Enums"]["origem_tipo"]
+          product_id: string
+          quantidade: number
+          responsavel?: string | null
+          school_id: string
+          tipo: Database["public"]["Enums"]["mov_tipo"]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          destino?: string | null
+          fornecedor?: string | null
+          id?: string
+          nota_fiscal?: string | null
+          observacoes?: string | null
+          origem?: Database["public"]["Enums"]["origem_tipo"]
+          product_id?: string
+          quantidade?: number
+          responsavel?: string | null
+          school_id?: string
+          tipo?: Database["public"]["Enums"]["mov_tipo"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movements_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          ativo: boolean
+          categoria: string
+          created_at: string
+          estoque_minimo: number
+          id: string
+          nome: string
+          origem_padrao: Database["public"]["Enums"]["origem_tipo"]
+          unidade: Database["public"]["Enums"]["unidade_tipo"]
+        }
+        Insert: {
+          ativo?: boolean
+          categoria: string
+          created_at?: string
+          estoque_minimo?: number
+          id?: string
+          nome: string
+          origem_padrao?: Database["public"]["Enums"]["origem_tipo"]
+          unidade: Database["public"]["Enums"]["unidade_tipo"]
+        }
+        Update: {
+          ativo?: boolean
+          categoria?: string
+          created_at?: string
+          estoque_minimo?: number
+          id?: string
+          nome?: string
+          origem_padrao?: Database["public"]["Enums"]["origem_tipo"]
+          unidade?: Database["public"]["Enums"]["unidade_tipo"]
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          nome: string | null
+          school_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id: string
+          nome?: string | null
+          school_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          nome?: string | null
+          school_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schools: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          diretor: string | null
+          endereco: string | null
+          id: string
+          nome: string
+          responsavel: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          diretor?: string | null
+          endereco?: string | null
+          id?: string
+          nome: string
+          responsavel?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          diretor?: string | null
+          endereco?: string | null
+          id?: string
+          nome?: string
+          responsavel?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      can_view_school: { Args: { _school: string }; Returns: boolean }
+      can_write_school: { Args: { _school: string }; Returns: boolean }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      registrar_saida: {
+        Args: {
+          _data: string
+          _destino: string
+          _observacoes: string
+          _origem: string
+          _product: string
+          _quantidade: number
+          _responsavel: string
+          _school: string
+        }
+        Returns: undefined
+      }
+      user_school: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "estoquista" | "diretor"
+      mov_tipo: "entrada" | "saida"
+      origem_tipo: "mercado" | "agricultura"
+      unidade_tipo: "kg" | "L" | "un"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +427,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "estoquista", "diretor"],
+      mov_tipo: ["entrada", "saida"],
+      origem_tipo: ["mercado", "agricultura"],
+      unidade_tipo: ["kg", "L", "un"],
+    },
   },
 } as const
