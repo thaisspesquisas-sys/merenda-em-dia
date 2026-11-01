@@ -13,8 +13,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedEntradasRouteImport } from './routes/_authenticated/entradas'
+import { Route as AuthenticatedFechamentoRouteImport } from './routes/_authenticated/fechamento'
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
 import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticated/produtos'
+import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedSaidasRouteImport } from './routes/_authenticated/saidas'
 
 const IndexRoute = IndexRouteImport.update({
@@ -36,6 +38,11 @@ const AuthenticatedEntradasRoute = AuthenticatedEntradasRouteImport.update({
   path: '/entradas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedFechamentoRoute = AuthenticatedFechamentoRouteImport.update({
+  id: '/fechamento',
+  path: '/fechamento',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
   id: '/painel',
   path: '/painel',
@@ -44,6 +51,11 @@ const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
 const AuthenticatedProdutosRoute = AuthenticatedProdutosRouteImport.update({
   id: '/produtos',
   path: '/produtos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSaidasRoute = AuthenticatedSaidasRouteImport.update({
@@ -56,16 +68,20 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/entradas': typeof AuthenticatedEntradasRoute
+  '/fechamento': typeof AuthenticatedFechamentoRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/produtos': typeof AuthenticatedProdutosRoute
+  '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/saidas': typeof AuthenticatedSaidasRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/entradas': typeof AuthenticatedEntradasRoute
+  '/fechamento': typeof AuthenticatedFechamentoRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/produtos': typeof AuthenticatedProdutosRoute
+  '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/saidas': typeof AuthenticatedSaidasRoute
 }
 export interface FileRoutesById {
@@ -74,23 +90,43 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/entradas': typeof AuthenticatedEntradasRoute
+  '/_authenticated/fechamento': typeof AuthenticatedFechamentoRoute
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
   '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
+  '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/saidas': typeof AuthenticatedSaidasRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/entradas' | '/painel' | '/produtos' | '/saidas'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/entradas'
+    | '/fechamento'
+    | '/painel'
+    | '/produtos'
+    | '/relatorios'
+    | '/saidas'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/entradas' | '/painel' | '/produtos' | '/saidas'
+  to:
+    | '/'
+    | '/auth'
+    | '/entradas'
+    | '/fechamento'
+    | '/painel'
+    | '/produtos'
+    | '/relatorios'
+    | '/saidas'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/entradas'
+    | '/_authenticated/fechamento'
     | '/_authenticated/painel'
     | '/_authenticated/produtos'
+    | '/_authenticated/relatorios'
     | '/_authenticated/saidas'
   fileRoutesById: FileRoutesById
 }
@@ -130,6 +166,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedEntradasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/fechamento': {
+      id: '/_authenticated/fechamento'
+      path: '/fechamento'
+      fullPath: '/fechamento'
+      preLoaderRoute: typeof AuthenticatedFechamentoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/painel': {
       id: '/_authenticated/painel'
       path: '/painel'
@@ -144,6 +187,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProdutosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/relatorios': {
+      id: '/_authenticated/relatorios'
+      path: '/relatorios'
+      fullPath: '/relatorios'
+      preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/saidas': {
       id: '/_authenticated/saidas'
       path: '/saidas'
@@ -156,15 +206,19 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedEntradasRoute: typeof AuthenticatedEntradasRoute
+  AuthenticatedFechamentoRoute: typeof AuthenticatedFechamentoRoute
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
   AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
+  AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedSaidasRoute: typeof AuthenticatedSaidasRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEntradasRoute: AuthenticatedEntradasRoute,
+  AuthenticatedFechamentoRoute: AuthenticatedFechamentoRoute,
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
   AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
+  AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedSaidasRoute: AuthenticatedSaidasRoute,
 }
 
