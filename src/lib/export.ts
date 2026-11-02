@@ -35,13 +35,13 @@ export async function exportPDF(info: DocInfo, columns: string[], rows: Cell[][]
   const lines = headerLines(info);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.text(lines[0], w / 2, 12, { align: "center" });
-  doc.text(lines[1], w / 2, 18, { align: "center" });
+  doc.text(lines[0]!, w / 2, 12, { align: "center" });
+  doc.text(lines[1]!, w / 2, 18, { align: "center" });
   doc.setFontSize(11);
-  doc.text(lines[2], w / 2, 24, { align: "center" });
+  doc.text(lines[2]!, w / 2, 24, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
-  doc.text(lines[3], w / 2, 30, { align: "center" });
+  doc.text(lines[3]!, w / 2, 30, { align: "center" });
   autoTable(doc, {
     startY: 34,
     head: [columns],

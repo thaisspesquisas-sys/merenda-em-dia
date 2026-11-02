@@ -33,7 +33,7 @@ export function MovList({ tipo, movs, produtos }: { tipo: "entrada" | "saida"; m
   async function excluir(m: Movimento) {
     if (!confirm("Excluir este registro? A correção ficará registrada na auditoria.")) return;
     const { error } = await supabase.from("movements").delete().eq("id", m.id);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     toast.success("Registro excluído");
     qc.invalidateQueries({ queryKey: ["movimentos"] });
   }

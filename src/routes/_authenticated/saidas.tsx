@@ -36,15 +36,15 @@ function Saidas() {
 
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
-    if (!f.product_id || !(q > 0)) return toast.error("Informe produto e quantidade válida");
-    if (excede) return toast.error(`Quantidade superior ao disponível (${fmtQ(limite)})`);
+    if (!f.product_id || !(q > 0)) { toast.error("Informe produto e quantidade válida"); return; }
+    if (excede) { toast.error(`Quantidade superior ao disponível (${fmtQ(limite)})`); return; }
     setBusy(true);
     const { error } = await supabase.rpc("registrar_saida", {
       _school: escola!.id, _product: f.product_id, _data: f.data, _quantidade: q, _origem: f.origem,
       _destino: f.destino || "", _responsavel: f.responsavel || "", _observacoes: f.observacoes || "",
     });
     setBusy(false);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     toast.success(`Saída registrada. Saldo restante: ${fmtQ(s.total - q)} ${prod?.unidade ?? ""}`);
     setF({ ...f, product_id: "", quantidade: "", destino: "", observacoes: "" });
     qc.invalidateQueries({ queryKey: ["movimentos"] });

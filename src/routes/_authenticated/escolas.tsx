@@ -29,7 +29,7 @@ function Escolas() {
     if (!f) return;
     const d = { nome: f.nome, endereco: f.endereco ?? null, responsavel: f.responsavel ?? null, diretor: f.diretor ?? null, ativo: f.ativo ?? true };
     const r = f.id ? await supabase.from("schools").update(d).eq("id", f.id) : await supabase.from("schools").insert(d);
-    if (r.error) return toast.error(errMsg(r.error));
+    if (r.error) { toast.error(errMsg(r.error)); return; }
     toast.success("Escola salva");
     setF(null);
     qc.invalidateQueries({ queryKey: ["escolas"] });

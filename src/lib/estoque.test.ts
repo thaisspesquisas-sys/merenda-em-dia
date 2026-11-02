@@ -16,7 +16,7 @@ describe("planilha mensal", () => {
   ];
 
   it("saldo final = estoque anterior + entradas − saídas, por origem", () => {
-    const [l] = computeMensal([arroz], movs, 2026, 10);
+    const l = computeMensal([arroz], movs, 2026, 10)[0]!;
     expect(l.ant_t).toBe(20);
     expect(l.ent_m).toBe(30);
     expect(l.ent_a).toBe(10);
@@ -27,8 +27,8 @@ describe("planilha mensal", () => {
   });
 
   it("saldo final de um mês vira estoque anterior do mês seguinte", () => {
-    const [out] = computeMensal([arroz], movs, 2026, 10);
-    const [nov] = computeMensal([arroz], movs, 2026, 11);
+    const out = computeMensal([arroz], movs, 2026, 10)[0]!;
+    const nov = computeMensal([arroz], movs, 2026, 11)[0]!;
     expect(nov.ant_m).toBe(out.fim_m);
     expect(nov.ant_a).toBe(out.fim_a);
   });

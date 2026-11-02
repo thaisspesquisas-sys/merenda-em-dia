@@ -28,12 +28,12 @@ function Usuarios() {
   if (!isAdmin) return <PageHeader title="Acesso restrito" />;
 
   async function setRole(id: string, role: string) {
-    if (id === userId && role !== "admin") return toast.error("Você não pode remover seu próprio perfil de administrador.");
+    if (id === userId && role !== "admin") { toast.error("Você não pode remover seu próprio perfil de administrador."); return; }
     const d = await supabase.from("user_roles").delete().eq("user_id", id);
-    if (d.error) return toast.error(errMsg(d.error));
+    if (d.error) { toast.error(errMsg(d.error)); return; }
     if (role) {
       const i = await supabase.from("user_roles").insert({ user_id: id, role: role as Role });
-      if (i.error) return toast.error(errMsg(i.error));
+      if (i.error) { toast.error(errMsg(i.error)); return; }
     }
     toast.success("Perfil atualizado");
     qc.invalidateQueries({ queryKey: ["usuarios"] });
@@ -41,7 +41,7 @@ function Usuarios() {
 
   async function setEscola(id: string, school_id: string) {
     const { error } = await supabase.from("profiles").update({ school_id: school_id || null }).eq("id", id);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     toast.success("Escola vinculada");
     qc.invalidateQueries({ queryKey: ["usuarios"] });
   }
