@@ -32,14 +32,14 @@ function Entradas() {
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
     const q = Number(f.quantidade);
-    if (!f.product_id || !(q > 0)) return toast.error("Informe produto e quantidade válida");
+    if (!f.product_id || !(q > 0)) { toast.error("Informe produto e quantidade válida"); return; }
     setBusy(true);
     const { error } = await supabase.from("movements").insert({
       school_id: escola!.id, product_id: f.product_id, tipo: "entrada", data: f.data, quantidade: q, origem: f.origem,
       fornecedor: f.fornecedor || null, nota_fiscal: f.nota_fiscal || null, observacoes: f.observacoes || null,
     });
     setBusy(false);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     toast.success("Entrada registrada e estoque atualizado");
     setF({ ...f, product_id: "", quantidade: "", fornecedor: "", nota_fiscal: "", observacoes: "" });
     qc.invalidateQueries({ queryKey: ["movimentos"] });

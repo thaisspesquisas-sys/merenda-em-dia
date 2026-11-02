@@ -46,7 +46,7 @@ function Fechamento() {
     const { error } = await supabase.from("monthly_closings").insert({
       school_id: escola!.id, ano, mes, responsavel: resp, observacoes: obs || null, snapshot: linhas as unknown as Json,
     });
-    if (error) return toast.error(error.code === "23505" ? "Este mês já foi fechado." : errMsg(error));
+    if (error) { toast.error(error.code === "23505" ? "Este mês já foi fechado." : errMsg(error)); return; }
     toast.success(`${MESES[mes - 1]}/${ano} fechado. Saldos transferidos para o mês seguinte.`);
     setDlg(false);
     qc.invalidateQueries({ queryKey: ["fechamentos"] });
@@ -55,7 +55,7 @@ function Fechamento() {
   async function reabrir() {
     if (!fechado || !confirm("Reabrir este mês para correção administrativa? A ação ficará registrada na auditoria.")) return;
     const { error } = await supabase.from("monthly_closings").delete().eq("id", fechado.id);
-    if (error) return toast.error(errMsg(error));
+    if (error) { toast.error(errMsg(error)); return; }
     toast.success("Mês reaberto para correção");
     qc.invalidateQueries({ queryKey: ["fechamentos"] });
   }
@@ -85,7 +85,7 @@ function Fechamento() {
       </Panel>
 
       <DocView
-        info={{ titulo: "Controle mensal de estoque da merenda escolar", escola: escola.nome, mes: MESES[mes - 1], ano, responsavel: fechado?.responsavel ?? escola.responsavel ?? "" }}
+        info={{ titulo: "Controle mensal de estoque da merenda escolar", escola: escola.nome, mes: MESES[mes - 1] ?? "", ano, responsavel: fechado?.responsavel ?? escola.responsavel ?? "" }}
         columns={COLS_MENSAL}
         rows={rowsMensal(linhas)}
         filename={`fechamento-${ano}-${String(mes).padStart(2, "0")}`}

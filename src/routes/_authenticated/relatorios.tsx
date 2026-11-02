@@ -96,7 +96,7 @@ function Relatorios() {
         )}
       </div>
       <DocView
-        info={{ titulo: TIPOS[tipo] + (tipo === "historico" && prodNome ? ` — ${prodNome}` : ""), escola: escola.nome, mes: MESES[mes - 1], ano, responsavel: escola.responsavel ?? "" }}
+        info={{ titulo: TIPOS[tipo] + (tipo === "historico" && prodNome ? ` — ${prodNome}` : ""), escola: escola.nome, mes: MESES[mes - 1] ?? "", ano, responsavel: escola.responsavel ?? "" }}
         columns={rep.columns}
         rows={rep.rows}
         filename={`${tipo}-${ano}-${String(mes).padStart(2, "0")}`}

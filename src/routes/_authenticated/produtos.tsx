@@ -38,7 +38,7 @@ function Produtos() {
     if (!form) return;
     const { id, ...dados } = form;
     const r = id ? await supabase.from("products").update(dados).eq("id", id) : await supabase.from("products").insert(dados);
-    if (r.error) return toast.error(errMsg(r.error));
+    if (r.error) { toast.error(errMsg(r.error)); return; }
     toast.success("Produto salvo");
     setForm(null);
     qc.invalidateQueries({ queryKey: ["produtos"] });
