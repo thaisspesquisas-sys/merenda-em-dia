@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { pageMeta } from "@/lib/page-meta";
 import { useMemo, useState } from "react";
 import { useApp, useFechamentos, useMovimentos, useProdutos } from "@/lib/app-context";
 import { computeMensal, computeSaldos, fmtData, MESES, monthRange, ORIGEM_LABEL, type LinhaMensal, type Origem } from "@/lib/estoque";
@@ -8,7 +9,7 @@ import { MesAno, NSelect, PageHeader, SemEscola } from "@/components/ui-kit";
 import { DocView } from "@/components/DocView";
 
 export const Route = createFileRoute("/_authenticated/relatorios")({
-  head: () => ({ meta: [{ title: "Relatórios — Gestão da Merenda Escolar" }] }),
+  head: () => pageMeta("Relatórios", "Consulte os relatórios de estoque, entradas e saídas da merenda escolar para impressão e exportação."),
   component: Relatorios,
 });
 

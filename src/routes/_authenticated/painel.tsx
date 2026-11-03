@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { pageMeta } from "@/lib/page-meta";
 import { useMemo } from "react";
 import { AlertTriangle, ArrowUpFromLine, Package, Scale, ShoppingCart, Sprout, XCircle } from "lucide-react";
 import { useApp, useMovimentos, useProdutos } from "@/lib/app-context";
@@ -6,7 +7,7 @@ import { computeSaldos, fmtQ, hoje, monthRange } from "@/lib/estoque";
 import { PageHeader, Panel, SemEscola } from "@/components/ui-kit";
 
 export const Route = createFileRoute("/_authenticated/painel")({
-  head: () => ({ meta: [{ title: "Painel — Gestão da Merenda Escolar" }] }),
+  head: () => pageMeta("Painel", "Consulte o estoque atual de alimentos, por origem, e os alertas da unidade escolar."),
   component: Painel,
 });
 

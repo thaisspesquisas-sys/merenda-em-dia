@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { pageMeta } from "@/lib/page-meta";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +7,7 @@ import { errMsg, ROLE_LABEL, useApp, type Role } from "@/lib/app-context";
 import { NSelect, PageHeader, Panel } from "@/components/ui-kit";
 
 export const Route = createFileRoute("/_authenticated/usuarios")({
-  head: () => ({ meta: [{ title: "Usuários — Gestão da Merenda Escolar" }] }),
+  head: () => pageMeta("Usuários", "Gerencie os perfis de acesso e o vínculo dos usuários com as unidades escolares."),
   component: Usuarios,
 });
 

@@ -14,3 +14,4 @@
 - Monthly closings store a frozen snapshot in `monthly_closings`; reopening (admin) deletes it and is audited via `audit_log` triggers. Why: closed months must stay reproducible.
 - Roles live in `user_roles` (admin, estoquista, diretor); school scoping is enforced by RLS helpers `can_view_school`/`can_write_school`.
 - Shared visual styling is defined by semantic tokens in `src/styles.css` and the shared shell/UI kit; the public entry remains the authentication page. Why: visual changes stay consistent without altering stock or authentication rules.
+- Content routes declare their own metadata; internal pages use `src/lib/page-meta.ts`. Why: each page has complete, distinct sharing and search descriptions.
