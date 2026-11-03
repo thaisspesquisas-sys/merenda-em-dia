@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { pageMeta } from "@/lib/page-meta";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -17,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import type { Json } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/fechamento")({
-  head: () => ({ meta: [{ title: "Fechamento mensal — Gestão da Merenda Escolar" }] }),
+  head: () => pageMeta("Fechamento mensal", "Confira a planilha mensal da merenda e os saldos transportados por origem."),
   component: Fechamento,
 });
 

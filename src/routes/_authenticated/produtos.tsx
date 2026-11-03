@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { pageMeta } from "@/lib/page-meta";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -13,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/produtos")({
-  head: () => ({ meta: [{ title: "Produtos — Gestão da Merenda Escolar" }] }),
+  head: () => pageMeta("Produtos", "Consulte os alimentos da merenda escolar por categoria, unidade e origem habitual."),
   component: Produtos,
 });
 

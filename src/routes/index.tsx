@@ -8,6 +8,8 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Sistema de controle de estoque da merenda escolar para unidades de ensino." },
       { property: "og:title", content: "Gestão da Merenda Escolar" },
       { property: "og:description", content: "Controle de entradas, saídas, origem dos alimentos e fechamento mensal." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   beforeLoad: async () => {
