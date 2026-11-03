@@ -73,16 +73,16 @@ function Shell() {
 
   const side = (
     <nav className="flex h-full flex-col gap-1 p-4">
-      <div className="mb-6 flex items-center gap-2 px-2 font-display text-lg font-bold">
-        <Wheat className="h-5 w-5" /> Merenda Escolar
+      <div className="mb-6 flex items-center gap-3 border-b px-2 pb-6 pt-2 font-display text-lg font-bold text-foreground">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Wheat className="h-6 w-6" /></span> Merenda Escolar
       </div>
       {items.map((n) => (
         <Link
           key={n.to}
           to={n.to}
           onClick={() => setOpen(false)}
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium opacity-85 transition hover:bg-sidebar-accent hover:opacity-100"
-          activeProps={{ className: "bg-sidebar-accent opacity-100" }}
+          className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors hover:bg-sidebar-accent"
+          activeProps={{ className: "bg-sidebar-accent text-primary font-semibold" }}
         >
           <n.icon className="h-4 w-4" /> {n.label}
         </Link>
@@ -90,28 +90,28 @@ function Shell() {
       <div className="mt-auto border-t border-sidebar-accent pt-4 text-xs">
         <div className="px-2 font-semibold">{app.nome}</div>
         <div className="px-2 opacity-70">{app.role && ROLE_LABEL[app.role]}</div>
-        <button onClick={out} className="mt-3 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-sidebar-accent">
+        <Button variant="ghost" onClick={out} className="mt-3 w-full justify-start px-2 text-sm">
           <LogOut className="h-4 w-4" /> Sair
-        </button>
+        </Button>
       </div>
     </nav>
   );
 
   return (
     <div className="min-h-screen md:grid md:grid-cols-[240px_1fr]">
-      <aside className="no-print sticky top-0 hidden h-screen bg-sidebar text-sidebar-foreground md:block">{side}</aside>
+      <aside className="no-print sticky top-0 hidden h-screen border-r bg-sidebar text-sidebar-foreground md:block">{side}</aside>
       {open && (
         <div className="no-print fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-foreground/40" onClick={() => setOpen(false)} />
           <aside className="absolute left-0 top-0 h-full w-64 bg-sidebar text-sidebar-foreground">
-            <button className="absolute right-3 top-4" onClick={() => setOpen(false)} aria-label="Fechar menu"><X className="h-5 w-5" /></button>
+            <Button variant="ghost" size="icon" className="absolute right-2 top-2" onClick={() => setOpen(false)} aria-label="Fechar menu"><X className="h-5 w-5" /></Button>
             {side}
           </aside>
         </div>
       )}
       <div className="min-w-0">
-        <header className="no-print sticky top-0 z-30 flex items-center gap-3 border-b bg-background/90 px-4 py-3 backdrop-blur md:px-8">
-          <button className="md:hidden" onClick={() => setOpen(true)} aria-label="Abrir menu"><Menu className="h-5 w-5" /></button>
+        <header className="no-print sticky top-0 z-30 flex items-center gap-3 border-b bg-card/95 px-4 py-4 backdrop-blur md:px-8">
+          <Button variant="ghost" size="icon" className="shrink-0 md:hidden" onClick={() => setOpen(true)} aria-label="Abrir menu"><Menu className="h-5 w-5" /></Button>
           <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Unidade</div>
           {app.isAdmin ? (
             <NSelect value={app.escola?.id ?? ""} onChange={(e) => app.setEscolaId(e.target.value)} className="max-w-xs">

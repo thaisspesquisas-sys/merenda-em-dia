@@ -18,7 +18,7 @@ export function NSelect({ className, children, ...p }: SelectHTMLAttributes<HTML
 
 export function PageHeader({ title, desc, children }: { title: string; desc?: string; children?: ReactNode }) {
   return (
-    <div className="no-print mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div className="no-print mb-7 flex flex-wrap items-end justify-between gap-3 border-b pb-5">
       <div>
         <h1 className="text-2xl font-bold md:text-3xl">{title}</h1>
         {desc && <p className="mt-1 text-sm text-muted-foreground">{desc}</p>}
@@ -29,7 +29,7 @@ export function PageHeader({ title, desc, children }: { title: string; desc?: st
 }
 
 export function Panel({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("rounded-xl border bg-card p-4 shadow-card md:p-5", className)}>{children}</div>;
+  return <div className={cn("rounded-lg border bg-card p-4 shadow-card md:p-5", className)}>{children}</div>;
 }
 
 export function OrigemBadge({ origem }: { origem: "mercado" | "agricultura" }) {
