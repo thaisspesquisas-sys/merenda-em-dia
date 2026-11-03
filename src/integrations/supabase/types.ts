@@ -219,6 +219,27 @@ export type Database = {
           },
         ]
       }
+      report_header_template: {
+        Row: {
+          id: boolean
+          image_data: string
+          source_name: string
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          image_data: string
+          source_name: string
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          image_data?: string
+          source_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       schools: {
         Row: {
           ativo: boolean
