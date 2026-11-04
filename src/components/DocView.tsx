@@ -1,21 +1,34 @@
 import { FileDown, FileSpreadsheet, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { exportExcel, exportPDF, type Cell, type DocInfo } from "@/lib/export";
+import { useReportHeader } from "@/lib/report-header";
+import { useApp } from "@/lib/app-context";
+import { ReportHeaderEditor } from "@/components/ReportHeaderEditor";
+import { toast } from "sonner";
 
 export function DocView({ info, columns, rows, filename, observacoes, dataFechamento }: {
   info: DocInfo; columns: string[]; rows: Cell[][]; filename: string; observacoes?: string; dataFechamento?: string;
 }) {
+  const header = useReportHeader();
+  const { isAdmin } = useApp();
+  const ready = !header.isPending && !header.isError;
+  const reportInfo = { ...info, headerImage: header.data?.image_data };
+  const onExportError = () => toast.error("Não foi possível exportar o relatório. Tente novamente.");
   return (
     <div>
       <div className="no-print mb-3 flex flex-wrap gap-2">
-        <Button variant="outline" onClick={() => window.print()}><Printer className="h-4 w-4" /> Imprimir (A4)</Button>
-        <Button variant="outline" onClick={() => exportPDF(info, columns, rows, filename, observacoes, dataFechamento)}><FileDown className="h-4 w-4" /> Exportar PDF</Button>
-        <Button variant="outline" onClick={() => exportExcel(info, columns, rows, filename)}><FileSpreadsheet className="h-4 w-4" /> Exportar Excel</Button>
+        <Button variant="outline" disabled={!ready} onClick={() => window.print()}><Printer className="h-4 w-4" /> Imprimir (A4)</Button>
+        <Button variant="outline" disabled={!ready} onClick={() => void exportPDF(reportInfo, columns, rows, filename, observacoes, dataFechamento).catch(onExportError)}><FileDown className="h-4 w-4" /> Exportar PDF</Button>
+        <Button variant="outline" disabled={!ready} onClick={() => void exportExcel(reportInfo, columns, rows, filename).catch(onExportError)}><FileSpreadsheet className="h-4 w-4" /> Exportar Excel</Button>
+        {isAdmin && <ReportHeaderEditor />}
       </div>
+      {header.isError && <div className="no-print mb-3 text-sm text-destructive">Não foi possível carregar o cabeçalho. <Button variant="link" onClick={() => void header.refetch()}>Tentar novamente</Button></div>}
       <div className="print-only-root doc-sheet overflow-x-auto rounded-xl border p-6 shadow-card">
         <div className="text-center">
-          <div className="text-sm font-bold">PREFEITURA MUNICIPAL</div>
-          <div className="text-sm font-bold">SECRETARIA MUNICIPAL DE EDUCAÇÃO</div>
+          {header.data ? <img src={header.data.image_data} alt="Cabeçalho oficial da Secretaria" className="mx-auto mb-3 max-h-36 w-full object-contain" /> : <>
+            <div className="text-sm font-bold">PREFEITURA MUNICIPAL</div>
+            <div className="text-sm font-bold">SECRETARIA MUNICIPAL DE EDUCAÇÃO</div>
+          </>}
           <div className="mt-1 text-base font-bold">{info.titulo.toUpperCase()}</div>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 border-y py-2 text-xs md:grid-cols-4">

@@ -15,3 +15,4 @@
 - Roles live in `user_roles` (admin, estoquista, diretor); school scoping is enforced by RLS helpers `can_view_school`/`can_write_school`.
 - Shared visual styling is defined by semantic tokens in `src/styles.css` and the shared shell/UI kit; the public entry remains the authentication page. Why: visual changes stay consistent without altering stock or authentication rules.
 - Content routes declare their own metadata; internal pages use `src/lib/page-meta.ts`. Why: each page has complete, distinct sharing and search descriptions.
+- Report header imports are parsed client-side and normalized to a bounded PNG in `report_header_template`, protected by role-based RLS; `DocView` uses that same image for screen, PDF and Excel. Why: one shared rendering preserves the approved institutional header without running office binaries on the server.

@@ -8,3 +8,13 @@
 - [ ] Salvar padrão da Secretaria com edição restrita ao administrador.
 - [ ] Aplicar na visualização, impressão, PDF e Excel de todos os relatórios.
 - [ ] Testar importação, persistência e exportações com uma conta conectada.
+
+# Ampliação integrada solicitada
+- [ ] Analisar estrutura, autenticação, permissões, documentos e dependências existentes.
+- [ ] Central de modelos oficiais versionados e modelos privados por escola, com aprovação e adoção explícita.
+- [ ] Importação editável com original preservado, OCR e revisão de campos duvidosos.
+- [ ] Documentos mensais e semanais editáveis, salvamento automático e biblioteca com filtros.
+- [ ] Exportação PDF, Excel e Word e impressão configurável.
+- [ ] Aplicativo instalável, identidade visual e instruções para iPhone.
+- [ ] Offline seguro, rascunhos locais, sincronização controlada e conflitos.
+- [ ] Permissões adicionais, auditoria, recuperação de versões e testes de integração.
