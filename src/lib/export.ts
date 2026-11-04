@@ -6,7 +6,7 @@ export interface DocInfo {
   mes: string;
   ano: number;
   responsavel?: string;
-  headerImage?: string;
+  headerImage?: string | undefined;
 }
 
 export type Cell = string | number;
