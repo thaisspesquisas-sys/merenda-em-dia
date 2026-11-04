@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedEntradasRouteImport } from './routes/_authenticated/entradas'
 import { Route as AuthenticatedEscolasRouteImport } from './routes/_authenticated/escolas'
 import { Route as AuthenticatedFechamentoRouteImport } from './routes/_authenticated/fechamento'
+import { Route as AuthenticatedModelosRouteImport } from './routes/_authenticated/modelos'
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
 import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticated/produtos'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
@@ -50,6 +51,11 @@ const AuthenticatedFechamentoRoute = AuthenticatedFechamentoRouteImport.update({
   path: '/fechamento',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedModelosRoute = AuthenticatedModelosRouteImport.update({
+  id: '/modelos',
+  path: '/modelos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedPainelRoute = AuthenticatedPainelRouteImport.update({
   id: '/painel',
   path: '/painel',
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/entradas': typeof AuthenticatedEntradasRoute
   '/escolas': typeof AuthenticatedEscolasRoute
   '/fechamento': typeof AuthenticatedFechamentoRoute
+  '/modelos': typeof AuthenticatedModelosRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByTo {
   '/entradas': typeof AuthenticatedEntradasRoute
   '/escolas': typeof AuthenticatedEscolasRoute
   '/fechamento': typeof AuthenticatedFechamentoRoute
+  '/modelos': typeof AuthenticatedModelosRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   '/_authenticated/entradas': typeof AuthenticatedEntradasRoute
   '/_authenticated/escolas': typeof AuthenticatedEscolasRoute
   '/_authenticated/fechamento': typeof AuthenticatedFechamentoRoute
+  '/_authenticated/modelos': typeof AuthenticatedModelosRoute
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
   '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
@@ -122,6 +131,7 @@ export interface FileRouteTypes {
     | '/entradas'
     | '/escolas'
     | '/fechamento'
+    | '/modelos'
     | '/painel'
     | '/produtos'
     | '/relatorios'
@@ -134,6 +144,7 @@ export interface FileRouteTypes {
     | '/entradas'
     | '/escolas'
     | '/fechamento'
+    | '/modelos'
     | '/painel'
     | '/produtos'
     | '/relatorios'
@@ -147,6 +158,7 @@ export interface FileRouteTypes {
     | '/_authenticated/entradas'
     | '/_authenticated/escolas'
     | '/_authenticated/fechamento'
+    | '/_authenticated/modelos'
     | '/_authenticated/painel'
     | '/_authenticated/produtos'
     | '/_authenticated/relatorios'
@@ -204,6 +216,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFechamentoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/modelos': {
+      id: '/_authenticated/modelos'
+      path: '/modelos'
+      fullPath: '/modelos'
+      preLoaderRoute: typeof AuthenticatedModelosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/painel': {
       id: '/_authenticated/painel'
       path: '/painel'
@@ -246,6 +265,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedEntradasRoute: typeof AuthenticatedEntradasRoute
   AuthenticatedEscolasRoute: typeof AuthenticatedEscolasRoute
   AuthenticatedFechamentoRoute: typeof AuthenticatedFechamentoRoute
+  AuthenticatedModelosRoute: typeof AuthenticatedModelosRoute
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
   AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
@@ -257,6 +277,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEntradasRoute: AuthenticatedEntradasRoute,
   AuthenticatedEscolasRoute: AuthenticatedEscolasRoute,
   AuthenticatedFechamentoRoute: AuthenticatedFechamentoRoute,
+  AuthenticatedModelosRoute: AuthenticatedModelosRoute,
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
   AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,

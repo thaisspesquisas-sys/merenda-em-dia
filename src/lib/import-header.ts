@@ -17,7 +17,8 @@ export async function renderHeaderFile(file: File): Promise<string> {
   if (ext === "pdf") {
     const pdfjs = await import("pdfjs-dist");
     pdfjs.GlobalWorkerOptions.workerSrc = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
-    const pdf = await pdfjs.getDocument({ data: bytes }).promise;
+    const task = pdfjs.getDocument({ data: bytes });
+    const pdf = await task.promise;
     try {
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 1.8 });
@@ -25,7 +26,7 @@ export async function renderHeaderFile(file: File): Promise<string> {
       canvas.width = viewport.width; canvas.height = viewport.height;
       await page.render({ canvas, viewport }).promise;
       return canvas.toDataURL("image/png");
-    } finally { await pdf.destroy(); }
+    } finally { await task.destroy(); }
   }
   if (ext === "docx") {
     const host = document.createElement("div");
@@ -52,6 +53,7 @@ async function renderExcel(bytes: ArrayBuffer, legacy: boolean) {
     const name = wb.SheetNames[0];
     if (!name) throw new Error("A planilha está vazia.");
     const sheet = wb.Sheets[name];
+    if (!sheet) throw new Error("A planilha está vazia.");
     const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, range: 0, defval: "" }).slice(0, 20);
     const canvas = document.createElement("canvas"); canvas.width = 1400; canvas.height = Math.max(300, rows.length * 35);
     const ctx = canvas.getContext("2d"); if (!ctx) throw new Error("Não foi possível ler a planilha.");
@@ -73,7 +75,7 @@ async function renderExcel(bytes: ArrayBuffer, legacy: boolean) {
   const merges = (sheet.model.merges ?? []).map(range => {
     const match = range.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
     const col = (s: string) => Array.from(s).reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0);
-    return match ? { c1: col(match[1]), r1: Number(match[2]), c2: col(match[3]), r2: Number(match[4]) } : null;
+    return match?.[1] && match[2] && match[3] && match[4] ? { c1: col(match[1]), r1: Number(match[2]), c2: col(match[3]), r2: Number(match[4]) } : null;
   }).filter(x => x !== null);
   for (let r = 1; r <= count; r++) for (let c = 1; c <= cols; c++) {
     const cell = sheet.getCell(r, c); if (cell.isMerged && cell.master.address !== cell.address) continue;
@@ -101,7 +103,7 @@ async function renderExcel(bytes: ArrayBuffer, legacy: boolean) {
     const anchor = (col: number, row: number) => ({ x: (xs[Math.floor(col)] ?? canvas.width) + (col % 1) * ((xs[Math.floor(col) + 1] ?? canvas.width) - (xs[Math.floor(col)] ?? canvas.width)), y: (ys[Math.floor(row)] ?? canvas.height) + (row % 1) * ((ys[Math.floor(row) + 1] ?? canvas.height) - (ys[Math.floor(row)] ?? canvas.height)) });
     const start = anchor(entry.range.tl.col, entry.range.tl.row);
     const end = entry.range.br ? anchor(entry.range.br.col, entry.range.br.row) : null;
-    const ext = entry.range.ext;
+    const ext = "ext" in entry.range ? entry.range.ext as { width: number; height: number } : undefined;
     ctx.drawImage(img, start.x, start.y, end ? end.x - start.x : ext?.width ?? img.width, end ? end.y - start.y : ext?.height ?? img.height);
   }
   return canvas.toDataURL("image/png");
