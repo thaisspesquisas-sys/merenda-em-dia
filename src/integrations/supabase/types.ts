@@ -44,6 +44,244 @@ export type Database = {
         }
         Relationships: []
       }
+      document_access: {
+        Row: {
+          permission: string
+          school_id: string
+          user_id: string
+        }
+        Insert: {
+          permission: string
+          school_id: string
+          user_id: string
+        }
+        Update: {
+          permission?: string
+          school_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_access_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_access_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_events: {
+        Row: {
+          action: string
+          created_at: string
+          document_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          document_id: string
+          id?: string
+          user_id?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          document_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_events_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "school_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_models: {
+        Row: {
+          archived: boolean
+          category: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          name: string
+          school_id: string | null
+        }
+        Insert: {
+          archived?: boolean
+          category: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name: string
+          school_id?: string | null
+        }
+        Update: {
+          archived?: boolean
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string
+          school_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_models_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_revisions: {
+        Row: {
+          changed_by: string | null
+          content: Json
+          created_at: string
+          document_id: string
+          id: number
+          name: string
+          revision: number
+          school_id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          content: Json
+          created_at?: string
+          document_id: string
+          id?: never
+          name: string
+          revision: number
+          school_id: string
+        }
+        Update: {
+          changed_by?: string | null
+          content?: Json
+          created_at?: string
+          document_id?: string
+          id?: never
+          name?: string
+          revision?: number
+          school_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_revisions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "school_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_revisions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      model_adoptions: {
+        Row: {
+          model_id: string
+          school_id: string
+          version_id: string
+        }
+        Insert: {
+          model_id: string
+          school_id: string
+          version_id: string
+        }
+        Update: {
+          model_id?: string
+          school_id?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_adoptions_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "document_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "model_adoptions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "model_adoptions_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "model_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      model_versions: {
+        Row: {
+          change_note: string
+          content: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          model_id: string
+          source_name: string | null
+          source_path: string | null
+          status: string
+          version: number
+        }
+        Insert: {
+          change_note?: string
+          content: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          model_id: string
+          source_name?: string | null
+          source_path?: string | null
+          status?: string
+          version: number
+        }
+        Update: {
+          change_note?: string
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          model_id?: string
+          source_name?: string | null
+          source_path?: string | null
+          status?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_versions_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "document_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       monthly_closings: {
         Row: {
           ano: number
@@ -240,6 +478,69 @@ export type Database = {
         }
         Relationships: []
       }
+      school_documents: {
+        Row: {
+          archived: boolean
+          category: string
+          content: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          reference_date: string | null
+          responsible: string
+          revision: number
+          school_id: string
+          updated_at: string
+          version_id: string | null
+        }
+        Insert: {
+          archived?: boolean
+          category?: string
+          content: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          reference_date?: string | null
+          responsible?: string
+          revision?: number
+          school_id: string
+          updated_at?: string
+          version_id?: string | null
+        }
+        Update: {
+          archived?: boolean
+          category?: string
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          reference_date?: string | null
+          responsible?: string
+          revision?: number
+          school_id?: string
+          updated_at?: string
+          version_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "school_documents_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "school_documents_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "model_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schools: {
         Row: {
           ativo: boolean
@@ -293,6 +594,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_edit_documents: { Args: { s: string }; Returns: boolean }
+      can_manage_model: { Args: { m: string }; Returns: boolean }
+      can_manage_models: { Args: { s: string }; Returns: boolean }
+      can_read_documents: { Args: { s: string }; Returns: boolean }
       can_view_school: { Args: { _school: string }; Returns: boolean }
       can_write_school: { Args: { _school: string }; Returns: boolean }
       has_role: {
@@ -302,6 +607,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      model_school: { Args: { m: string }; Returns: string }
       registrar_saida: {
         Args: {
           _data: string
