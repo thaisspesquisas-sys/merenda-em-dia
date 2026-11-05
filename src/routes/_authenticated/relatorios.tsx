@@ -1,39 +1,74 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { pageMeta } from "@/lib/page-meta";
 import { useMemo, useState } from "react";
-import { useApp, useFechamentos, useMovimentos, useProdutos } from "@/lib/app-context";
-import { computeMensal, computeSaldos, fmtData, MESES, monthRange, ORIGEM_LABEL, type LinhaMensal, type Origem } from "@/lib/estoque";
+import {
+  useAllMovimentos,
+  useApp,
+  useFechamentos,
+  useMovimentos,
+  useProdutos,
+} from "@/lib/app-context";
+import {
+  computeMensal,
+  computeSaldos,
+  computeSemanal,
+  fmtData,
+  formatUnidade,
+  isSaldoInicial,
+  MESES,
+  monthRange,
+  ORIGEM_LABEL,
+  parseMovObservacoes,
+  weekRangesOfMonth,
+  type LinhaMensal,
+  type Movimento,
+  type Origem,
+} from "@/lib/estoque";
+import { computeExpirationAlerts, generateConsumptionSummaryBySchool } from "@/lib/ai-intelligence";
 import { COLS_MENSAL, rowsMensal } from "@/lib/report-cols";
 import type { Cell } from "@/lib/export";
 import { MesAno, NSelect, PageHeader, SemEscola } from "@/components/ui-kit";
 import { DocView } from "@/components/DocView";
 
 export const Route = createFileRoute("/_authenticated/relatorios")({
-  head: () => pageMeta("Relatórios", "Consulte os relatórios de estoque, entradas e saídas da merenda escolar para impressão e exportação."),
+  head: () =>
+    pageMeta(
+      "Relatórios e Impressão",
+      "Relatórios semanais, mensais, entradas, saídas, estoque atual, Agricultura Familiar, Mercado, consumo por escola e controle de validade.",
+    ),
   component: Relatorios,
 });
 
 const TIPOS = {
-  mensal: "Relatório mensal de estoque",
-  entradas: "Relatório de entradas",
-  saidas: "Relatório de saídas",
-  disponiveis: "Relatório de produtos disponíveis",
-  agricultura: "Produtos da Agricultura Familiar",
-  mercado: "Produtos do Mercado",
+  semanal: "Relatório semanal de merenda",
+  mensal: "Relatório mensal de merenda",
+  entradas: "Relatório de entradas (compras e recebimentos)",
+  saidas: "Relatório de saídas (consumo)",
+  disponiveis: "Relatório de estoque atual",
+  agricultura: "Relatório de produtos da Agricultura Familiar",
+  mercado: "Relatório de produtos adquiridos no Mercado",
+  consumo_escola: "Relatório de consumo por unidade escolar",
+  validade: "Relatório de produtos vencidos ou próximos do vencimento",
+  saldo_inicial: "Relatório de Saldo Inicial Importado",
   historico: "Histórico de movimentação por produto",
 } as const;
 type Tipo = keyof typeof TIPOS;
 
 function Relatorios() {
-  const { escola } = useApp();
+  const { escola, escolas } = useApp();
   const prods = useProdutos();
   const movs = useMovimentos(escola?.id);
+  const allMovs = useAllMovimentos(true);
   const fechs = useFechamentos(escola?.id);
   const now = new Date();
   const [tipo, setTipo] = useState<Tipo>("mensal");
   const [mes, setMes] = useState(now.getMonth() + 1);
   const [ano, setAno] = useState(now.getFullYear());
+  const [semanaIdx, setSemanaIdx] = useState(0);
   const [prodId, setProdId] = useState("");
+
+  const weeks = useMemo(() => weekRangesOfMonth(ano, mes), [ano, mes]);
+  const activeWeek = weeks[Math.min(semanaIdx, weeks.length - 1)] ?? weeks[0]!;
 
   const rep = useMemo(() => {
     const ps = prods.data ?? [];
@@ -43,61 +78,302 @@ function Relatorios() {
     const doMes = ms.filter((m) => m.data >= start && m.data < end);
     let columns: string[] = [];
     let rows: Cell[][] = [];
+
     if (tipo === "mensal") {
       const f = (fechs.data ?? []).find((x) => x.ano === ano && x.mes === mes);
       const linhas = f ? (f.snapshot as LinhaMensal[]) : computeMensal(ps, ms, ano, mes);
       columns = COLS_MENSAL;
       rows = rowsMensal(linhas);
-    } else if (tipo === "entradas" || tipo === "saidas") {
-      const t = tipo === "entradas" ? "entrada" : "saida";
-      columns = t === "entrada" ? ["Data", "Produto", "Quantidade", "Unid.", "Origem", "Fornecedor", "NF/Doc.", "Observações"] : ["Data", "Produto", "Quantidade", "Unid.", "Origem", "Destino", "Responsável", "Observações"];
-      rows = doMes.filter((m) => m.tipo === t).map((m) => [
-        fmtData(m.data), pmap.get(m.product_id)?.nome ?? "", m.quantidade, pmap.get(m.product_id)?.unidade ?? "", ORIGEM_LABEL[m.origem],
-        (t === "entrada" ? m.fornecedor : m.destino) ?? "", (t === "entrada" ? m.nota_fiscal : m.responsavel) ?? "", m.observacoes ?? "",
-      ]);
+    } else if (tipo === "semanal") {
+      const linhas = computeSemanal(
+        ps,
+        ms,
+        activeWeek.start,
+        activeWeek.end,
+        activeWeek.endInclusive,
+      );
+      columns = COLS_MENSAL;
+      rows = rowsMensal(linhas);
+    } else if (tipo === "entradas") {
+      columns = [
+        "Data",
+        "Produto",
+        "Quantidade",
+        "Unid.",
+        "Origem",
+        "Fornecedor",
+        "NF / Doc.",
+        "Responsável",
+        "Observações",
+      ];
+      rows = doMes
+        .filter((m) => m.tipo === "entrada" && !isSaldoInicial(m))
+        .map((m) => {
+          const p = pmap.get(m.product_id);
+          return [
+            fmtData(m.data),
+            p?.nome ?? "",
+            m.quantidade,
+            p ? formatUnidade(p) : "",
+            ORIGEM_LABEL[m.origem],
+            m.fornecedor ?? "",
+            m.nota_fiscal ?? "",
+            m.responsavel ?? "",
+            parseMovObservacoes(m.observacoes).texto,
+          ];
+        });
+    } else if (tipo === "saidas") {
+      columns = [
+        "Data",
+        "Produto",
+        "Quantidade",
+        "Unid.",
+        "Origem",
+        "Escola de Destino",
+        "Finalidade",
+        "Responsável",
+        "Observações",
+      ];
+      rows = doMes
+        .filter((m) => m.tipo === "saida")
+        .map((m) => {
+          const p = pmap.get(m.product_id);
+          return [
+            fmtData(m.data),
+            p?.nome ?? "",
+            m.quantidade,
+            p ? formatUnidade(p) : "",
+            ORIGEM_LABEL[m.origem],
+            escola?.nome ?? "",
+            m.destino ?? "",
+            m.responsavel ?? "",
+            m.observacoes ?? "",
+          ];
+        });
     } else if (tipo === "disponiveis") {
       const s = computeSaldos(ms, end);
-      columns = ["Produto", "Unid.", "Mercado", "Agricultura Familiar", "Total disponível"];
-      rows = ps.filter((p) => (s.get(p.id)?.total ?? 0) > 0).map((p) => { const x = s.get(p.id)!; return [p.nome, p.unidade, x.mercado, x.agricultura, x.total]; });
+      columns = [
+        "Produto",
+        "Categoria",
+        "Unid.",
+        "Mercado",
+        "Agricultura Familiar",
+        "Total disponível",
+      ];
+      rows = ps
+        .filter((p) => (s.get(p.id)?.total ?? 0) > 0)
+        .map((p) => {
+          const x = s.get(p.id)!;
+          return [p.nome, p.categoria, formatUnidade(p), x.mercado, x.agricultura, x.total];
+        });
     } else if (tipo === "agricultura" || tipo === "mercado") {
       const o = tipo as Origem;
-      const linhas = computeMensal(ps, ms.filter((m) => m.origem === o), ano, mes);
-      columns = ["Produto", "Unid.", "Estoque anterior", "Entradas do mês", "Saídas do mês", "Saldo final"];
+      const linhas = computeMensal(
+        ps,
+        ms.filter((m) => m.origem === o),
+        ano,
+        mes,
+      );
+      columns = [
+        "Produto",
+        "Unid.",
+        "Estoque anterior",
+        "Entradas do mês",
+        "Saídas do mês",
+        "Saldo final",
+      ];
       rows = linhas.map((l) => [l.nome, l.unidade, l.ant_t, l.ent_t, l.sai_t, l.fim_t]);
+    } else if (tipo === "consumo_escola") {
+      const mapBySchool = new Map<string, Movimento[]>();
+      for (const m of allMovs.data ?? ms) {
+        const arr = mapBySchool.get(m.school_id) ?? [];
+        arr.push(m);
+        mapBySchool.set(m.school_id, arr);
+      }
+      const targetSchools = escolas.length > 0 ? escolas : escola ? [escola] : [];
+      const summaries = generateConsumptionSummaryBySchool(targetSchools, mapBySchool, ano, mes);
+      columns = [
+        "Unidade Escolar",
+        "Entradas no Mês",
+        "Consumo / Saídas no Mês",
+        "Estoque Atual",
+        "Gêneros Utilizados",
+        "% Agric. Familiar",
+        "Resumo Analítico",
+      ];
+      rows = summaries.map((s) => [
+        s.escolaNome,
+        s.entradasMes,
+        s.saidasMes,
+        s.estoqueAtual,
+        s.itensConsumidos,
+        `${s.percAgriculturaFamiliar}%`,
+        s.resumoTexto,
+      ]);
+    } else if (tipo === "validade") {
+      const alerts = computeExpirationAlerts(ps, ms);
+      columns = [
+        "Produto",
+        "Unid.",
+        "Origem",
+        "Lote",
+        "Data de Validade",
+        "Dias p/ Vencer",
+        "Saldo em Estoque",
+        "Situação",
+      ];
+      rows = alerts.map((a) => [
+        a.nome,
+        a.unidade,
+        ORIGEM_LABEL[a.origem],
+        a.lote ?? "—",
+        fmtData(a.validade),
+        a.diasParaVencer,
+        a.saldoAtual,
+        a.situacao === "vencido"
+          ? "VENCIDO"
+          : a.situacao === "proximo_vencimento"
+            ? "PRÓXIMO DO VENCIMENTO"
+            : "REGULAR",
+      ]);
+    } else if (tipo === "saldo_inicial") {
+      columns = [
+        "Data Referência",
+        "Produto",
+        "Quantidade",
+        "Unid.",
+        "Origem",
+        "Responsável",
+        "Lançamento",
+      ];
+      rows = ms
+        .filter((m) => isSaldoInicial(m))
+        .map((m) => {
+          const p = pmap.get(m.product_id);
+          return [
+            fmtData(m.data),
+            p?.nome ?? "",
+            m.quantidade,
+            p ? formatUnidade(p) : "",
+            ORIGEM_LABEL[m.origem],
+            m.responsavel ?? "",
+            "Saldo Inicial Importado",
+          ];
+        });
     } else if (tipo === "historico") {
-      columns = ["Data", "Tipo", "Origem", "Quantidade", "Saldo Mercado", "Saldo Agric. Fam.", "Saldo total", "Detalhe"];
+      columns = [
+        "Data",
+        "Tipo",
+        "Origem",
+        "Quantidade",
+        "Saldo Mercado",
+        "Saldo Agric. Fam.",
+        "Saldo total",
+        "Detalhe",
+      ];
       if (prodId) {
-        let sm = 0, sa = 0;
+        let sm = 0;
+        let sa = 0;
         for (const m of ms.filter((x) => x.product_id === prodId && x.data < end)) {
           const q = m.tipo === "entrada" ? m.quantidade : -m.quantidade;
-          if (m.origem === "mercado") sm += q; else sa += q;
-          if (m.data >= start) rows.push([fmtData(m.data), m.tipo === "entrada" ? "Entrada" : "Saída", ORIGEM_LABEL[m.origem], q, sm, sa, sm + sa, [m.fornecedor, m.nota_fiscal, m.destino, m.observacoes].filter(Boolean).join(" · ")]);
+          if (m.origem === "mercado") sm += q;
+          else sa += q;
+          if (m.data >= start) {
+            rows.push([
+              fmtData(m.data),
+              isSaldoInicial(m)
+                ? "Saldo Inicial Importado"
+                : m.tipo === "entrada"
+                  ? "Entrada"
+                  : "Saída",
+              ORIGEM_LABEL[m.origem],
+              q,
+              sm,
+              sa,
+              sm + sa,
+              [m.fornecedor, m.nota_fiscal, m.destino, parseMovObservacoes(m.observacoes).texto]
+                .filter(Boolean)
+                .join(" · "),
+            ]);
+          }
         }
       }
     }
     return { columns, rows };
-  }, [tipo, mes, ano, prodId, prods.data, movs.data, fechs.data]);
+  }, [
+    tipo,
+    mes,
+    ano,
+    semanaIdx,
+    activeWeek,
+    prodId,
+    prods.data,
+    movs.data,
+    allMovs.data,
+    fechs.data,
+    escola,
+    escolas,
+  ]);
 
-  if (!escola) return <><PageHeader title="Relatórios" /><SemEscola /></>;
+  if (!escola)
+    return (
+      <>
+        <PageHeader title="Relatórios e Impressão" />
+        <SemEscola />
+      </>
+    );
   const prodNome = prods.data?.find((p) => p.id === prodId)?.nome;
+  const periodoStr =
+    tipo === "semanal" ? `${activeWeek.label} de ${MESES[mes - 1]}` : (MESES[mes - 1] ?? "");
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Relatórios" desc="Visualize, imprima em A4 ou exporte para PDF e Excel" />
+      <PageHeader
+        title="Relatórios e Impressão"
+        desc="Visualize e exporte relatórios oficiais da merenda escolar para Excel, PDF, Word e impressão A4"
+      />
       <div className="no-print flex flex-wrap gap-2">
-        <NSelect value={tipo} onChange={(e) => setTipo(e.target.value as Tipo)} className="w-72">
-          {Object.entries(TIPOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        <NSelect value={tipo} onChange={(e) => setTipo(e.target.value as Tipo)} className="w-80">
+          {Object.entries(TIPOS).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
         </NSelect>
         <MesAno mes={mes} ano={ano} onMes={setMes} onAno={setAno} />
+        {tipo === "semanal" && (
+          <NSelect
+            value={String(semanaIdx)}
+            onChange={(e) => setSemanaIdx(Number(e.target.value))}
+            className="w-60"
+          >
+            {weeks.map((w, idx) => (
+              <option key={w.start} value={idx}>
+                {w.label}
+              </option>
+            ))}
+          </NSelect>
+        )}
         {tipo === "historico" && (
           <NSelect value={prodId} onChange={(e) => setProdId(e.target.value)} className="w-56">
             <option value="">Selecione o produto…</option>
-            {(prods.data ?? []).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+            {(prods.data ?? []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nome}
+              </option>
+            ))}
           </NSelect>
         )}
       </div>
       <DocView
-        info={{ titulo: TIPOS[tipo] + (tipo === "historico" && prodNome ? ` — ${prodNome}` : ""), escola: escola.nome, mes: MESES[mes - 1] ?? "", ano, responsavel: escola.responsavel ?? "" }}
+        info={{
+          titulo: TIPOS[tipo] + (tipo === "historico" && prodNome ? ` — ${prodNome}` : ""),
+          escola:
+            tipo === "consumo_escola" ? "Rede Municipal de Ensino (Consolidado)" : escola.nome,
+          mes: periodoStr,
+          ano,
+          responsavel: escola.responsavel ?? "",
+        }}
         columns={rep.columns}
         rows={rep.rows}
         filename={`${tipo}-${ano}-${String(mes).padStart(2, "0")}`}
