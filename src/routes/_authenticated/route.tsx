@@ -18,6 +18,7 @@ import {
   Upload,
   ArchiveRestore,
   Barcode,
+  FileSpreadsheet,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -88,6 +89,7 @@ function Pendente() {
 
 const NAV = [
   { to: "/painel", label: "Painel de Controle", icon: LayoutDashboard },
+  { to: "/mapa-merenda-padua", label: "Mapa Oficial PDF (4 Págs.)", icon: FileSpreadsheet },
   { to: "/saida-rapida", label: "Saída Rápida (Cód. Barras)", icon: Barcode },
   { to: "/estoque-anterior", label: "Estoque Anterior (Inicial)", icon: ArchiveRestore },
   { to: "/modelos", label: "Importar Modelos e Docs", icon: Sparkles },

@@ -1,6 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { pageMeta } from "@/lib/page-meta";
 import { useMemo, useState } from "react";
+import { FileSpreadsheet } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   useAllMovimentos,
   useApp,
@@ -398,7 +400,13 @@ function Relatorios() {
       <PageHeader
         title="Relatórios e Impressão"
         desc="Visualize e exporte relatórios oficiais da merenda escolar para Excel, PDF, Word e impressão A4"
-      />
+      >
+        <Button asChild size="sm">
+          <Link to="/mapa-merenda-padua">
+            <FileSpreadsheet className="h-4 w-4" /> Mapa Oficial PDF (4 Páginas Féis)
+          </Link>
+        </Button>
+      </PageHeader>
       <div className="no-print flex flex-wrap gap-2">
         <NSelect value={tipo} onChange={(e) => setTipo(e.target.value as Tipo)} className="w-80">
           {Object.entries(TIPOS).map(([k, v]) => (

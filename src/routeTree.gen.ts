@@ -17,6 +17,7 @@ import { Route as AuthenticatedEscolasRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedEstoqueAnteriorRouteImport } from './routes/_authenticated/estoque-anterior'
 import { Route as AuthenticatedFechamentoRouteImport } from './routes/_authenticated/fechamento'
 import { Route as AuthenticatedImportarEstoqueRouteImport } from './routes/_authenticated/importar-estoque'
+import { Route as AuthenticatedMapaMerendaPaduaRouteImport } from './routes/_authenticated/mapa-merenda-padua'
 import { Route as AuthenticatedModelosRouteImport } from './routes/_authenticated/modelos'
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
 import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticated/produtos'
@@ -66,6 +67,12 @@ const AuthenticatedImportarEstoqueRoute =
     path: '/importar-estoque',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedMapaMerendaPaduaRoute =
+  AuthenticatedMapaMerendaPaduaRouteImport.update({
+    id: '/mapa-merenda-padua',
+    path: '/mapa-merenda-padua',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedModelosRoute = AuthenticatedModelosRouteImport.update({
   id: '/modelos',
   path: '/modelos',
@@ -111,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/estoque-anterior': typeof AuthenticatedEstoqueAnteriorRoute
   '/fechamento': typeof AuthenticatedFechamentoRoute
   '/importar-estoque': typeof AuthenticatedImportarEstoqueRoute
+  '/mapa-merenda-padua': typeof AuthenticatedMapaMerendaPaduaRoute
   '/modelos': typeof AuthenticatedModelosRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/produtos': typeof AuthenticatedProdutosRoute
@@ -127,6 +135,7 @@ export interface FileRoutesByTo {
   '/estoque-anterior': typeof AuthenticatedEstoqueAnteriorRoute
   '/fechamento': typeof AuthenticatedFechamentoRoute
   '/importar-estoque': typeof AuthenticatedImportarEstoqueRoute
+  '/mapa-merenda-padua': typeof AuthenticatedMapaMerendaPaduaRoute
   '/modelos': typeof AuthenticatedModelosRoute
   '/painel': typeof AuthenticatedPainelRoute
   '/produtos': typeof AuthenticatedProdutosRoute
@@ -145,6 +154,7 @@ export interface FileRoutesById {
   '/_authenticated/estoque-anterior': typeof AuthenticatedEstoqueAnteriorRoute
   '/_authenticated/fechamento': typeof AuthenticatedFechamentoRoute
   '/_authenticated/importar-estoque': typeof AuthenticatedImportarEstoqueRoute
+  '/_authenticated/mapa-merenda-padua': typeof AuthenticatedMapaMerendaPaduaRoute
   '/_authenticated/modelos': typeof AuthenticatedModelosRoute
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
   '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/estoque-anterior'
     | '/fechamento'
     | '/importar-estoque'
+    | '/mapa-merenda-padua'
     | '/modelos'
     | '/painel'
     | '/produtos'
@@ -179,6 +190,7 @@ export interface FileRouteTypes {
     | '/estoque-anterior'
     | '/fechamento'
     | '/importar-estoque'
+    | '/mapa-merenda-padua'
     | '/modelos'
     | '/painel'
     | '/produtos'
@@ -196,6 +208,7 @@ export interface FileRouteTypes {
     | '/_authenticated/estoque-anterior'
     | '/_authenticated/fechamento'
     | '/_authenticated/importar-estoque'
+    | '/_authenticated/mapa-merenda-padua'
     | '/_authenticated/modelos'
     | '/_authenticated/painel'
     | '/_authenticated/produtos'
@@ -269,6 +282,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedImportarEstoqueRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/mapa-merenda-padua': {
+      id: '/_authenticated/mapa-merenda-padua'
+      path: '/mapa-merenda-padua'
+      fullPath: '/mapa-merenda-padua'
+      preLoaderRoute: typeof AuthenticatedMapaMerendaPaduaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/modelos': {
       id: '/_authenticated/modelos'
       path: '/modelos'
@@ -327,6 +347,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedEstoqueAnteriorRoute: typeof AuthenticatedEstoqueAnteriorRoute
   AuthenticatedFechamentoRoute: typeof AuthenticatedFechamentoRoute
   AuthenticatedImportarEstoqueRoute: typeof AuthenticatedImportarEstoqueRoute
+  AuthenticatedMapaMerendaPaduaRoute: typeof AuthenticatedMapaMerendaPaduaRoute
   AuthenticatedModelosRoute: typeof AuthenticatedModelosRoute
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
   AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
@@ -342,6 +363,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEstoqueAnteriorRoute: AuthenticatedEstoqueAnteriorRoute,
   AuthenticatedFechamentoRoute: AuthenticatedFechamentoRoute,
   AuthenticatedImportarEstoqueRoute: AuthenticatedImportarEstoqueRoute,
+  AuthenticatedMapaMerendaPaduaRoute: AuthenticatedMapaMerendaPaduaRoute,
   AuthenticatedModelosRoute: AuthenticatedModelosRoute,
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
   AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
