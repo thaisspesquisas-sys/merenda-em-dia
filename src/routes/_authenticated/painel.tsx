@@ -9,6 +9,7 @@ import {
   Barcode,
   CalendarClock,
   CheckCircle2,
+  FileSpreadsheet,
   Package,
   Scale,
   ShoppingCart,
@@ -175,12 +176,17 @@ function Painel() {
   return (
     <div className="space-y-6">
       <PageHeader title="Painel de Controle da Merenda Escolar" desc={escola.nome}>
+        <Button asChild size="sm">
+          <Link to="/mapa-merenda-padua">
+            <FileSpreadsheet className="h-4 w-4" /> Mapa Oficial PDF — Quatro Páginas
+          </Link>
+        </Button>
         <Button asChild size="sm" className="bg-saida text-white hover:bg-saida/90">
           <Link to="/saida-rapida">
             <Barcode className="h-4 w-4" /> Saída Rápida (Código de Barras)
           </Link>
         </Button>
-        <Button asChild size="sm">
+        <Button asChild variant="outline" size="sm">
           <Link to="/estoque-anterior">
             <ArchiveRestore className="h-4 w-4" /> Lançar Estoque Anterior
           </Link>
@@ -288,7 +294,7 @@ function Painel() {
               Resumo Automático de Consumo por Escola ({MESES[d.mesAtual - 1]}/{d.anoAtual})
             </h2>
             <Button asChild variant="link" size="sm" className="h-auto p-0">
-              <Link to="/relatorios">Ver relatório completo</Link>
+              <Link to="/mapa-merenda-padua">Abrir Mapa Oficial PDF — Quatro Páginas</Link>
             </Button>
           </div>
           <div className="max-h-44 space-y-2 overflow-y-auto pr-1 text-xs">

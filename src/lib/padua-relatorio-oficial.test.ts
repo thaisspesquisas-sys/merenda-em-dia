@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   criarRelatorioPaduaEmBranco,
   criarRelatorioPaduaValoresOriginaisPDF,
+  diagnosticarMapaOficial,
   GENEROS_PAGINA_1,
   GENEROS_PAGINA_3,
   GENEROS_PAGINA_4,
   getPaduaCustomLogos,
   listarRelatoriosPaduaSalvos,
+  obterRelatorioSalvoMes,
   preencherRelatorioComEstoqueReal,
   salvarRelatorioPadua,
   savePaduaCustomLogos,
@@ -226,5 +228,183 @@ describe("Modelo Oficial PDF 4 Páginas — Prefeitura Municipal de Santo Antôn
     expect(novoRelatorio.logoEsquerdaDataUrl).toBe(fakeLogoLeft);
     expect(novoRelatorio.logoDireitaDataUrl).toBe(fakeLogoRight);
     expect(novoRelatorio.prefeitura).toBe("Prefeitura Municipal Customizada");
+  });
+
+  it("5. Garante continuidade entre meses (Estoque Final de Outubro vira Estoque Anterior de Novembro), separação Mercado/Agric. Familiar e conferência automática", async () => {
+    const produtos: Produto[] = [
+      {
+        id: "p-arroz",
+        nome: "Arroz",
+        unidade: "kg",
+        categoria: "Cereais",
+        origem_padrao: "mercado",
+        ativo: true,
+        estoque_minimo: 20,
+      },
+      {
+        id: "p-banana",
+        nome: "Banana",
+        unidade: "kg",
+        categoria: "Hortifruti",
+        origem_padrao: "agricultura",
+        ativo: true,
+        estoque_minimo: 10,
+      },
+    ];
+
+    const movimentos: Movimento[] = [
+      // Mês 10 (Outubro/2026): Entrada 200kg Arroz (Mercado), Saída 80kg -> Saldo Final Outubro = 120kg
+      {
+        id: "mov-out-1",
+        school_id: escolaTeste.id,
+        product_id: "p-arroz",
+        tipo: "entrada",
+        data: "2026-10-05",
+        quantidade: 200,
+        origem: "mercado",
+      },
+      {
+        id: "mov-out-2",
+        school_id: escolaTeste.id,
+        product_id: "p-arroz",
+        tipo: "saida",
+        data: "2026-10-15",
+        quantidade: 80,
+        origem: "mercado",
+      },
+      // Mês 10 (Outubro/2026): Entrada 60kg Banana (Agric. Familiar), Saída 45kg -> Saldo Final Outubro = 15kg
+      {
+        id: "mov-out-3",
+        school_id: escolaTeste.id,
+        product_id: "p-banana",
+        tipo: "entrada",
+        data: "2026-10-06",
+        quantidade: 60,
+        origem: "agricultura",
+      },
+      {
+        id: "mov-out-4",
+        school_id: escolaTeste.id,
+        product_id: "p-banana",
+        tipo: "saida",
+        data: "2026-10-16",
+        quantidade: 45,
+        origem: "agricultura",
+      },
+      // Mês 11 (Novembro/2026): Entrada +50kg Arroz (Mercado), Saída 40kg -> Estoque Anterior = 120, Atual = 170, Final = 130
+      {
+        id: "mov-nov-1",
+        school_id: escolaTeste.id,
+        product_id: "p-arroz",
+        tipo: "entrada",
+        data: "2026-11-03",
+        quantidade: 50,
+        origem: "mercado",
+      },
+      {
+        id: "mov-nov-2",
+        school_id: escolaTeste.id,
+        product_id: "p-arroz",
+        tipo: "saida",
+        data: "2026-11-06",
+        quantidade: 40,
+        origem: "mercado",
+      },
+      // Mês 11 (Novembro/2026): Entrada +30kg Banana (Agric. Familiar), Saída 20kg -> Estoque Anterior = 15, Atual = 45, Final = 25
+      {
+        id: "mov-nov-3",
+        school_id: escolaTeste.id,
+        product_id: "p-banana",
+        tipo: "entrada",
+        data: "2026-11-04",
+        quantidade: 30,
+        origem: "agricultura",
+      },
+      {
+        id: "mov-nov-4",
+        school_id: escolaTeste.id,
+        product_id: "p-banana",
+        tipo: "saida",
+        data: "2026-11-06",
+        quantidade: 20,
+        origem: "agricultura",
+      },
+    ];
+
+    // 1. Preenche e salva Outubro/2026
+    const { relatorio: mapaOutubro } = preencherRelatorioComEstoqueReal({
+      relatorioAtual: criarRelatorioPaduaEmBranco({ escola: escolaTeste, ano: 2026, mes: 10 }),
+      escola: escolaTeste,
+      produtos,
+      movimentos,
+      ano: 2026,
+      mes: 10,
+      semanaIdx: 0,
+    });
+    await salvarRelatorioPadua(mapaOutubro);
+
+    const arrozOut = mapaOutubro.pag3e4.linhasPag3.find((l) => l.genero === "Arroz - kg")!;
+    expect(arrozOut.antMercado).toBe(0);
+    expect(arrozOut.entMercado).toBe(200);
+    expect(arrozOut.saiMercado).toBe(80);
+    expect(arrozOut.fimMercado).toBe(120);
+
+    const bananaOut = mapaOutubro.pag3e4.linhasPag3.find((l) => l.genero === "Banana - kg")!;
+    expect(bananaOut.antAgric).toBe(0);
+    expect(bananaOut.entAgric).toBe(60);
+    expect(bananaOut.saiAgric).toBe(45);
+    expect(bananaOut.fimAgric).toBe(15);
+
+    // 2. Ao selecionar Novembro/2026, recupera automaticamente o saldo final de Outubro sem misturar meses
+    const salvoOutubro = obterRelatorioSalvoMes(escolaTeste.id, 2026, 10);
+    const { relatorio: mapaNovembro } = preencherRelatorioComEstoqueReal({
+      relatorioAtual: criarRelatorioPaduaEmBranco({ escola: escolaTeste, ano: 2026, mes: 11 }),
+      escola: escolaTeste,
+      produtos,
+      movimentos,
+      ano: 2026,
+      mes: 11,
+      semanaIdx: 0,
+      relatorioMesAnterior: salvoOutubro,
+    });
+
+    const arrozNov = mapaNovembro.pag3e4.linhasPag3.find((l) => l.genero === "Arroz - kg")!;
+    expect(arrozNov.antMercado).toBe(120);
+    expect(arrozNov.entMercado).toBe(50);
+    expect(arrozNov.estMercado).toBe(170);
+    expect(arrozNov.saiMercado).toBe(40);
+    expect(arrozNov.fimMercado).toBe(130);
+
+    const bananaNov = mapaNovembro.pag3e4.linhasPag3.find((l) => l.genero === "Banana - kg")!;
+    expect(bananaNov.antAgric).toBe(15);
+    expect(bananaNov.entAgric).toBe(30);
+    expect(bananaNov.estAgric).toBe(45);
+    expect(bananaNov.saiAgric).toBe(20);
+    expect(bananaNov.fimAgric).toBe(25);
+
+    // 3. Verifica diagnóstico e totais de Novembro/2026
+    const diagNov = diagnosticarMapaOficial({
+      relatorio: mapaNovembro,
+      produtos,
+      movimentos,
+      ano: 2026,
+      mes: 11,
+    });
+    expect(diagNov.totalAntMercado).toBe(120);
+    expect(diagNov.totalAntAgric).toBe(15);
+    expect(diagNov.totalEntMercado).toBe(50);
+    expect(diagNov.totalEntAgric).toBe(30);
+    expect(diagNov.totalSaiMercado).toBe(40);
+    expect(diagNov.totalSaiAgric).toBe(20);
+    expect(diagNov.totalFimMercado).toBe(130);
+    expect(diagNov.totalFimAgric).toBe(25);
+    expect(diagNov.camposFaltantes.length).toBeGreaterThan(0);
+
+    // 4. Confere que o relatório salvo de Outubro/2026 permaneceu intacto no histórico
+    const outubroReconsultado = obterRelatorioSalvoMes(escolaTeste.id, 2026, 10)!;
+    const arrozOutIntacto = outubroReconsultado.pag3e4.linhasPag3.find(
+      (l) => l.genero === "Arroz - kg",
+    )!;
+    expect(arrozOutIntacto.fimMercado).toBe(120);
   });
 });

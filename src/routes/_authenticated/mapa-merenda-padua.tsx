@@ -1,14 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { pageMeta } from "@/lib/page-meta";
-import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   CheckCircle2,
   Download,
   Eye,
   FileSpreadsheet,
   History,
   ImagePlus,
+  Lock,
   Pencil,
   Printer,
   RotateCcw,
@@ -16,14 +19,18 @@ import {
   Smartphone,
   Sparkles,
   Trash2,
+  Unlock,
 } from "lucide-react";
-import { useApp, useMovimentos, useProdutos } from "@/lib/app-context";
-import { weekRangesOfMonth } from "@/lib/estoque";
+import { supabase } from "@/integrations/supabase/client";
+import { errMsg, useApp, useFechamentos, useMovimentos, useProdutos } from "@/lib/app-context";
+import { computeMensal, fmtQ, MESES, weekRangesOfMonth, type LinhaMensal } from "@/lib/estoque";
 import {
   criarRelatorioPaduaEmBranco,
   criarRelatorioPaduaValoresOriginaisPDF,
+  diagnosticarMapaOficial,
   listarRelatoriosPaduaSalvos,
   normalizeLogoImageFile,
+  obterRelatorioSalvoMes,
   preencherRelatorioComEstoqueReal,
   recalcLinhaPag1,
   recalcLinhaPag3e4,
@@ -37,7 +44,7 @@ import {
   LogoSecretariaEducacaoSvg,
   RelatorioPaduaOficialView,
 } from "@/components/RelatorioPaduaOficialView";
-import { MesAno, NSelect, PageHeader, Panel, SemEscola } from "@/components/ui-kit";
+import { Kpi, MesAno, NSelect, PageHeader, Panel, SemEscola } from "@/components/ui-kit";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -49,12 +56,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { Json } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/mapa-merenda-padua")({
   head: () =>
     pageMeta(
-      "Mapa Oficial de Controle da Merenda (Modelo Fiel PDF 4 Páginas)",
-      "Reprodução fiel das 4 páginas do Mapa de Controle da Merenda Escolar da Secretaria Municipal de Educação de Santo Antônio de Pádua, com preenchimento inteligente, edição, histórico e exportação PDF.",
+      "Mapa Oficial PDF — Quatro Páginas",
+      "Módulo principal e único de preenchimento automático, conferência, fechamento mensal, histórico e impressão do Mapa Oficial de Controle da Merenda Escolar (4 Páginas).",
     ),
   component: MapaMerendaPaduaPage,
 });
@@ -63,9 +71,11 @@ function MapaMerendaPaduaPage() {
   const { escola, nome, canWrite, isAdmin } = useApp();
   const prods = useProdutos();
   const movs = useMovimentos(escola?.id);
+  const fechs = useFechamentos(escola?.id);
+  const qc = useQueryClient();
 
   const now = new Date();
-  const [mes, setMes] = useState(10);
+  const [mes, setMes] = useState(now.getMonth() + 1);
   const [ano, setAno] = useState(now.getFullYear());
   const [semanaIdx, setSemanaIdx] = useState(0);
 
@@ -76,28 +86,110 @@ function MapaMerendaPaduaPage() {
   const [busySave, setBusySave] = useState(false);
   const [histVersion, setHistVersion] = useState(0);
   const [openLogosModal, setOpenLogosModal] = useState(false);
+  const [openFecharModal, setOpenFecharModal] = useState(false);
+  const [obsFechamento, setObsFechamento] = useState("");
+  const [modoDemoPdfOriginal, setModoDemoPdfOriginal] = useState(false);
 
   const [relatorio, setRelatorio] = useState<RelatorioOficialPaduaData>(() =>
-    criarRelatorioPaduaValoresOriginaisPDF(escola, nome),
+    criarRelatorioPaduaEmBranco({
+      escola,
+      ano: now.getFullYear(),
+      mes: now.getMonth() + 1,
+      emitidoPor: nome || escola?.responsavel || "",
+    }),
   );
 
   const weeks = useMemo(() => weekRangesOfMonth(ano, mes), [ano, mes]);
+
+  const fechado = useMemo(
+    () => (fechs.data ?? []).find((f) => f.ano === ano && f.mes === mes) ?? null,
+    [fechs.data, ano, mes],
+  );
 
   const historicoSalvo = useMemo(() => {
     void histVersion;
     return listarRelatoriosPaduaSalvos(escola?.id);
   }, [escola?.id, histVersion]);
 
+  // Preenchimento automático reativo ao selecionar Mês, Ano, Semana ou quando o estoque recebe entradas/saídas
+  useEffect(() => {
+    if (!escola || modoDemoPdfOriginal) return;
+
+    const salvoMesAtual = obterRelatorioSalvoMes(escola.id, ano, mes);
+
+    // Se o mês já está fechado e possui mapa salvo no histórico, preserva exatamente o mapa congelado
+    if (fechado && salvoMesAtual) {
+      setRelatorio(salvoMesAtual);
+      return;
+    }
+
+    const mesAnt = mes === 1 ? 12 : mes - 1;
+    const anoAnt = mes === 1 ? ano - 1 : ano;
+    const salvoMesAnterior = obterRelatorioSalvoMes(escola.id, anoAnt, mesAnt);
+
+    const baseParaPreencher =
+      salvoMesAtual ??
+      criarRelatorioPaduaEmBranco({
+        escola,
+        ano,
+        mes,
+        emitidoPor: nome || escola.responsavel || "",
+      });
+
+    const { relatorio: preenchido } = preencherRelatorioComEstoqueReal({
+      relatorioAtual: baseParaPreencher,
+      escola,
+      produtos: prods.data ?? [],
+      movimentos: movs.data ?? [],
+      ano,
+      mes,
+      semanaIdx,
+      snapshotFechado: fechado ? (fechado.snapshot as LinhaMensal[]) : null,
+      relatorioMesAnterior: salvoMesAnterior,
+    });
+
+    setRelatorio(preenchido);
+  }, [escola, ano, mes, semanaIdx, prods.data, movs.data, fechado, nome, modoDemoPdfOriginal]);
+
+  const diagnostico = useMemo(
+    () =>
+      diagnosticarMapaOficial({
+        relatorio,
+        produtos: prods.data ?? [],
+        movimentos: movs.data ?? [],
+        ano,
+        mes,
+      }),
+    [relatorio, prods.data, movs.data, ano, mes],
+  );
+
   if (!escola) {
     return (
       <>
-        <PageHeader title="Mapa Oficial da Merenda Escolar (Modelo PDF 4 Páginas)" />
+        <PageHeader title="Mapa Oficial PDF — Quatro Páginas" />
         <SemEscola />
       </>
     );
   }
 
+  function handleSelecionarMes(novoMes: number) {
+    setModoDemoPdfOriginal(false);
+    setSemanaIdx(0);
+    setMes(novoMes);
+  }
+
+  function handleSelecionarAno(novoAno: number) {
+    setModoDemoPdfOriginal(false);
+    setSemanaIdx(0);
+    setAno(novoAno);
+  }
+
   function handleGerarEmBranco() {
+    if (fechado) {
+      toast.error("Este mês está fechado e congelado. Reabra o mês para limpar os campos.");
+      return;
+    }
+    setModoDemoPdfOriginal(true);
     const novo = criarRelatorioPaduaEmBranco({
       escola,
       ano,
@@ -109,15 +201,21 @@ function MapaMerendaPaduaPage() {
   }
 
   function handleCarregarOriginalPdf() {
+    setModoDemoPdfOriginal(true);
     const orig = criarRelatorioPaduaValoresOriginaisPDF(escola, nome);
     setRelatorio(orig);
     setMes(10);
     setAno(2026);
-    toast.success("Dados idênticos ao PDF original anexado (Outubro/2026) carregados!");
+    toast.success("Modelo de referência do PDF original (Outubro/2026) carregado!");
   }
 
   function handlePreencherComEstoqueReal() {
     if (!escola) return;
+    setModoDemoPdfOriginal(false);
+    const mesAnt = mes === 1 ? 12 : mes - 1;
+    const anoAnt = mes === 1 ? ano - 1 : ano;
+    const salvoMesAnterior = obterRelatorioSalvoMes(escola.id, anoAnt, mesAnt);
+
     const { relatorio: preenchido, generosCorrespondidos } = preencherRelatorioComEstoqueReal({
       relatorioAtual: relatorio,
       escola,
@@ -126,10 +224,12 @@ function MapaMerendaPaduaPage() {
       ano,
       mes,
       semanaIdx,
+      snapshotFechado: fechado ? (fechado.snapshot as LinhaMensal[]) : null,
+      relatorioMesAnterior: salvoMesAnterior,
     });
     setRelatorio(preenchido);
     toast.success(
-      `Preenchimento inteligente concluído! ${generosCorrespondidos} gênero(s) atualizado(s) a partir do estoque real da escola.`,
+      `Sincronização automática concluída! ${generosCorrespondidos} gênero(s) atualizado(s) com os lançamentos reais de ${MESES[mes - 1]}/${ano}.`,
     );
   }
 
@@ -150,7 +250,9 @@ function MapaMerendaPaduaPage() {
       });
       setRelatorio(salvo);
       setHistVersion((v) => v + 1);
-      toast.success("Relatório oficial salvo e registrado no histórico de emissão da escola!");
+      toast.success(
+        `Mapa Oficial de ${MESES[mes - 1]}/${ano} salvo no histórico da unidade escolar!`,
+      );
     } catch {
       toast.error("Não foi possível salvar o relatório.");
     } finally {
@@ -158,9 +260,72 @@ function MapaMerendaPaduaPage() {
     }
   }
 
+  async function handleFecharMes() {
+    if (!escola) return;
+    setBusySave(true);
+    try {
+      const snapshotMensal = computeMensal(prods.data ?? [], movs.data ?? [], ano, mes);
+      const { error } = await supabase.from("monthly_closings").insert({
+        school_id: escola.id,
+        ano,
+        mes,
+        responsavel: nome || escola.responsavel || "Responsável pela Merenda",
+        observacoes: obsFechamento || null,
+        snapshot: snapshotMensal as unknown as Json,
+      });
+      if (error && error.code !== "23505") {
+        toast.error(errMsg(error));
+        setBusySave(false);
+        return;
+      }
+      const salvo = await salvarRelatorioPadua({
+        ...relatorio,
+        schoolId: escola.id,
+        schoolName: escola.nome,
+        ano,
+        mes,
+        emitidoPor: nome || escola.responsavel || "Responsável pela Merenda",
+      });
+      setRelatorio(salvo);
+      setHistVersion((v) => v + 1);
+      setOpenFecharModal(false);
+      setObsFechamento("");
+      await qc.invalidateQueries({ queryKey: ["fechamentos"] });
+      toast.success(
+        `${MESES[mes - 1]}/${ano} fechado! O saldo final deste mês foi congelado e transferido automaticamente como Estoque Anterior de ${MESES[mes % 12]}/${mes === 12 ? ano + 1 : ano}.`,
+      );
+    } finally {
+      setBusySave(false);
+    }
+  }
+
+  async function handleReabrirMes() {
+    if (!fechado || !isAdmin) return;
+    if (
+      !confirm(
+        `Reabrir o mês de ${MESES[mes - 1]}/${ano} para correção administrativa? A ação ficará registrada na auditoria.`,
+      )
+    ) {
+      return;
+    }
+    const { error } = await supabase.from("monthly_closings").delete().eq("id", fechado.id);
+    if (error) {
+      toast.error(errMsg(error));
+      return;
+    }
+    await qc.invalidateQueries({ queryKey: ["fechamentos"] });
+    toast.success(`Mês de ${MESES[mes - 1]}/${ano} reaberto para atualização.`);
+  }
+
   function handleBaixarPdf() {
+    if (diagnostico.camposFaltantes.length > 0) {
+      toast.info(
+        `PDF gerado! Atenção: há ${diagnostico.camposFaltantes.length} campo(s) complementar(es) em branco sinalizado(s) no painel de conferência.`,
+      );
+    } else {
+      toast.success("PDF de 4 páginas gerado com fidelidade ao documento oficial!");
+    }
     exportarPdfRelatorioPadua4Paginas(relatorio);
-    toast.success("PDF de 4 páginas gerado com fidelidade ao documento original!");
   }
 
   async function handleTrocarLogoArquivo(side: "left" | "right", file: File) {
@@ -227,8 +392,8 @@ function MapaMerendaPaduaPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Mapa de Controle da Merenda Escolar (Modelo Oficial PDF — 4 Páginas)"
-        desc={`Reprodução visual e estrutural fiel do documento da SME de Santo Antônio de Pádua — ${escola.nome}`}
+        title="Mapa Oficial PDF — Quatro Páginas"
+        desc={`Módulo principal e único de controle mensal, semanal e impressão oficial da merenda escolar — ${escola.nome}`}
       >
         <Button variant="outline" size="sm" onClick={() => setOpenLogosModal(true)}>
           <ImagePlus className="h-4 w-4" /> Editar Logos / Brasão
@@ -237,29 +402,156 @@ function MapaMerendaPaduaPage() {
           <RotateCcw className="h-4 w-4" /> Versão em Branco
         </Button>
         <Button variant="outline" size="sm" onClick={handleCarregarOriginalPdf}>
-          <FileSpreadsheet className="h-4 w-4" /> Dados do PDF Original
+          <FileSpreadsheet className="h-4 w-4" /> Modelo PDF Referência
         </Button>
         <Button variant="default" size="sm" onClick={handlePreencherComEstoqueReal}>
-          <Sparkles className="h-4 w-4" /> Preencher com Estoque da Escola
+          <Sparkles className="h-4 w-4" /> Sincronizar com Estoque
         </Button>
       </PageHeader>
 
-      {/* Barra de controles: Período + Modos (Visualizar, Editar na Folha, Editar no Celular, Salvar, PDF, Imprimir, Histórico) */}
+      {/* PAINEL DE RESUMO AUTOMÁTICO E CONTINUIDADE DO MÊS SELECIONADO */}
+      <div className="no-print grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <Kpi
+          label="1. Estoque Anterior"
+          value={fmtQ(diagnostico.totalAntGeral)}
+          sub={`Mercado: ${fmtQ(diagnostico.totalAntMercado)} · Agric. Fam.: ${fmtQ(diagnostico.totalAntAgric)}`}
+          tone="default"
+        />
+        <Kpi
+          label="2. Entradas no Mês"
+          value={fmtQ(diagnostico.totalEntGeral)}
+          sub={`Mercado: ${fmtQ(diagnostico.totalEntMercado)} · Agric. Fam.: ${fmtQ(diagnostico.totalEntAgric)}`}
+          tone="entrada"
+        />
+        <Kpi
+          label="3. Saídas no Mês"
+          value={fmtQ(diagnostico.totalSaiGeral)}
+          sub={`Mercado: ${fmtQ(diagnostico.totalSaiMercado)} · Agric. Fam.: ${fmtQ(diagnostico.totalSaiAgric)}`}
+          tone="saida"
+        />
+        <Kpi
+          label="4. Saldo Final Restante"
+          value={fmtQ(diagnostico.totalFimGeral)}
+          sub={`Mercado: ${fmtQ(diagnostico.totalFimMercado)} · Agric. Fam.: ${fmtQ(diagnostico.totalFimAgric)}`}
+          tone="saldo"
+        />
+        <Kpi
+          label="5. Status / Conferência"
+          value={
+            fechado
+              ? "Mês Fechado"
+              : diagnostico.camposFaltantes.length === 0
+                ? "100% Conferido"
+                : `${diagnostico.camposFaltantes.length} pendente(s)`
+          }
+          sub={`${diagnostico.generosComMovimentoMes} gênero(s) no mês · ${diagnostico.generosComMovimentoSemana} na semana`}
+          tone={
+            fechado ? "saldo" : diagnostico.camposFaltantes.length === 0 ? "entrada" : "warning"
+          }
+        />
+      </div>
+
+      {/* SINALIZAÇÃO DE CAMPOS FALTANTES E CONFERÊNCIA DE SEGURANÇA ANTES DE GERAR O PDF */}
+      {(diagnostico.camposFaltantes.length > 0 ||
+        diagnostico.duplicidadesMes.length > 0 ||
+        diagnostico.saldosNegativos.length > 0) && (
+        <Panel className="no-print border-l-4 border-l-warning bg-warning-soft/25 p-3.5 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 font-bold text-foreground">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              Conferência antes de gerar o PDF ({MESES[mes - 1]}/{ano})
+            </div>
+            <span className="text-[11px] text-muted-foreground">
+              Verifique os itens sinalizados abaixo para que o Mapa Oficial saia completo
+            </span>
+          </div>
+
+          {diagnostico.camposFaltantes.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {diagnostico.camposFaltantes.map((cf) => (
+                <button
+                  key={`${cf.pagina}-${cf.campo}`}
+                  type="button"
+                  onClick={() => {
+                    setModoTela("editar_folha");
+                    toast.info(
+                      `Preencha o campo "${cf.campo}" diretamente na Página ${cf.pagina}.`,
+                    );
+                  }}
+                  className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-background px-2 py-1 text-[11px] font-medium text-foreground transition hover:bg-warning-soft"
+                >
+                  <span className="rounded bg-warning/20 px-1 font-bold text-warning">
+                    Pág. {cf.pagina}
+                  </span>
+                  <b>{cf.campo}:</b> {cf.descricao}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {diagnostico.duplicidadesMes.length > 0 && (
+            <div className="mt-2 text-warning">
+              <b>Atenção (Possível Duplicidade):</b> Foram identificados{" "}
+              {diagnostico.duplicidadesMes.length} lançamento(s) com mesma data, produto e
+              quantidade neste mês (ex.: {diagnostico.duplicidadesMes[0]?.produtoNome}).
+            </div>
+          )}
+
+          {diagnostico.saldosNegativos.length > 0 && (
+            <div className="mt-2 text-destructive">
+              <b>Alerta de Saldo Negativo:</b> Verifique os valores de{" "}
+              {diagnostico.saldosNegativos.slice(0, 4).join(", ")}.
+            </div>
+          )}
+        </Panel>
+      )}
+
+      {/* Barra de controles: Seleção de Mês/Ano/Semana + Modos + Fechamento Mensal + PDF/Impressão */}
       <Panel className="no-print space-y-3 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <MesAno mes={mes} ano={ano} onMes={setMes} onAno={setAno} />
+            <MesAno mes={mes} ano={ano} onMes={handleSelecionarMes} onAno={handleSelecionarAno} />
             <NSelect
               value={String(semanaIdx)}
-              onChange={(e) => setSemanaIdx(Number(e.target.value))}
+              onChange={(e) => {
+                setModoDemoPdfOriginal(false);
+                setSemanaIdx(Number(e.target.value));
+              }}
               className="w-56"
             >
               {weeks.map((w, idx) => (
                 <option key={w.start} value={idx}>
-                  {w.label}
+                  {w.label} (Pág. 1)
                 </option>
               ))}
             </NSelect>
+
+            {historicoSalvo.length > 0 && (
+              <NSelect
+                value=""
+                onChange={(e) => {
+                  const idSel = e.target.value;
+                  const enc = historicoSalvo.find((h) => h.id === idSel);
+                  if (enc) {
+                    setModoDemoPdfOriginal(true);
+                    setMes(enc.mes);
+                    setAno(enc.ano);
+                    setRelatorio(enc);
+                    toast.success(
+                      `Mapa salvo de ${enc.pag2.mes}/${enc.pag2.ano} carregado para consulta/impressão!`,
+                    );
+                  }
+                }}
+                className="w-56"
+              >
+                <option value="">Consultar meses anteriores salvos…</option>
+                {historicoSalvo.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.pag2.mes}/{h.pag2.ano} — {new Date(h.updatedAt).toLocaleDateString("pt-BR")}
+                  </option>
+                ))}
+              </NSelect>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -268,7 +560,7 @@ function MapaMerendaPaduaPage() {
               variant={modoTela === "visualizar" ? "default" : "outline"}
               onClick={() => setModoTela("visualizar")}
             >
-              <Eye className="h-4 w-4" /> Visualizar Relatório
+              <Eye className="h-4 w-4" /> Visualizar 4 Páginas
             </Button>
             <Button
               size="sm"
@@ -289,27 +581,50 @@ function MapaMerendaPaduaPage() {
               variant={modoTela === "historico" ? "default" : "outline"}
               onClick={() => setModoTela("historico")}
             >
-              <History className="h-4 w-4" /> Histórico ({historicoSalvo.length})
+              <History className="h-4 w-4" /> Mapas Anteriores ({historicoSalvo.length})
             </Button>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
-          <div className="text-xs text-muted-foreground">
-            Última atualização: <b>{new Date(relatorio.updatedAt).toLocaleString("pt-BR")}</b> ·
-            Responsável: <b>{relatorio.emitidoPor || nome || "—"}</b>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            {fechado ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-saldo-soft px-2 py-0.5 font-semibold text-saldo">
+                <Lock className="h-3.5 w-3.5" /> Mês Fechado e Congelado ({MESES[mes - 1]}/{ano})
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-md bg-entrada-soft px-2 py-0.5 font-semibold text-entrada">
+                <CheckCircle2 className="h-3.5 w-3.5" /> Preenchimento Automático Ativo (
+                {MESES[mes - 1]}/{ano})
+              </span>
+            )}
+            <span>
+              · Última atualização: <b>{new Date(relatorio.updatedAt).toLocaleString("pt-BR")}</b> ·
+              Responsável: <b>{relatorio.emitidoPor || nome || "—"}</b>
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => setOpenLogosModal(true)}>
               <ImagePlus className="h-4 w-4" /> Logos do Cabeçalho
             </Button>
+            {fechado
+              ? isAdmin && (
+                  <Button size="sm" variant="outline" onClick={() => void handleReabrirMes()}>
+                    <Unlock className="h-4 w-4" /> Reabrir Mês
+                  </Button>
+                )
+              : (canWrite || isAdmin) && (
+                  <Button size="sm" variant="outline" onClick={() => setOpenFecharModal(true)}>
+                    <Lock className="h-4 w-4" /> Fechar Mês ({MESES[mes - 1]})
+                  </Button>
+                )}
             <Button
               size="sm"
-              disabled={busySave}
+              disabled={busySave || !!fechado}
               onClick={() => void handleSalvarRelatorio()}
               className="bg-entrada text-white hover:bg-entrada/90"
             >
-              <Save className="h-4 w-4" /> {busySave ? "Salvando…" : "Salvar Relatório"}
+              <Save className="h-4 w-4" /> {busySave ? "Salvando…" : "Salvar no Histórico"}
             </Button>
             <Button size="sm" onClick={handleBaixarPdf}>
               <Download className="h-4 w-4" /> Baixar em PDF (4 Páginas)
@@ -325,8 +640,11 @@ function MapaMerendaPaduaPage() {
       {(modoTela === "visualizar" || modoTela === "editar_folha") && (
         <RelatorioPaduaOficialView
           data={relatorio}
-          editable={modoTela === "editar_folha" && (canWrite || isAdmin)}
-          onChange={setRelatorio}
+          editable={modoTela === "editar_folha" && !fechado && (canWrite || isAdmin)}
+          onChange={(next) => {
+            setModoDemoPdfOriginal(true);
+            setRelatorio(next);
+          }}
         />
       )}
 
@@ -892,6 +1210,57 @@ function MapaMerendaPaduaPage() {
                 <Save className="h-4 w-4" /> Salvar Logos e Aplicar
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL DE FECHAMENTO DO MÊS NO MAPA OFICIAL */}
+      <Dialog open={openFecharModal} onOpenChange={setOpenFecharModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Fechar e Congelar Mapa Oficial de {MESES[mes - 1]}/{ano}
+            </DialogTitle>
+            <DialogDescription>
+              Ao fechar este mês, o Mapa Oficial de 4 páginas ficará salvo e protegido no histórico
+              da escola, e o Saldo Final ({fmtQ(diagnostico.totalFimGeral)}) será automaticamente
+              utilizado como Estoque Anterior de {MESES[mes % 12]}/{mes === 12 ? ano + 1 : ano}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2 text-xs">
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
+              <div>
+                Estoque Anterior: <b>{fmtQ(diagnostico.totalAntGeral)}</b>
+              </div>
+              <div>
+                Entradas no Mês: <b className="text-entrada">+{fmtQ(diagnostico.totalEntGeral)}</b>{" "}
+                (Mercado: {fmtQ(diagnostico.totalEntMercado)} | Agric. Fam.:{" "}
+                {fmtQ(diagnostico.totalEntAgric)})
+              </div>
+              <div>
+                Saídas no Mês: <b className="text-saida">-{fmtQ(diagnostico.totalSaiGeral)}</b>
+              </div>
+              <div className="border-t pt-1">
+                Saldo Final transferido ao próximo mês:{" "}
+                <b className="text-saldo">{fmtQ(diagnostico.totalFimGeral)}</b>
+              </div>
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Observações do Fechamento (opcional)</Label>
+              <Input
+                value={obsFechamento}
+                onChange={(e) => setObsFechamento(e.target.value)}
+                placeholder="Ex.: Conferido pela direção e nutricionista RT"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setOpenFecharModal(false)}>
+              Cancelar
+            </Button>
+            <Button size="sm" disabled={busySave} onClick={() => void handleFecharMes()}>
+              <Lock className="h-4 w-4" /> Confirmar Fechamento
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

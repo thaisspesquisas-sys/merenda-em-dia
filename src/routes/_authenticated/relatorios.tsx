@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { pageMeta } from "@/lib/page-meta";
 import { useMemo, useState } from "react";
 import { FileSpreadsheet } from "lucide-react";
@@ -35,6 +35,9 @@ import { MesAno, NSelect, PageHeader, SemEscola } from "@/components/ui-kit";
 import { DocView } from "@/components/DocView";
 
 export const Route = createFileRoute("/_authenticated/relatorios")({
+  beforeLoad: () => {
+    throw redirect({ to: "/mapa-merenda-padua" });
+  },
   head: () =>
     pageMeta(
       "Relatórios e Impressão",

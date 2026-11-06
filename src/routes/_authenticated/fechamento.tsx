@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { pageMeta } from "@/lib/page-meta";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -29,6 +29,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import type { Json } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/fechamento")({
+  beforeLoad: () => {
+    throw redirect({ to: "/mapa-merenda-padua" });
+  },
   head: () =>
     pageMeta(
       "Controle Semanal e Mensal",

@@ -2,12 +2,16 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   computeMensal,
   computeSemanal,
+  formatUnidade,
   MESES,
+  monthRange,
   weekRangesOfMonth,
   type Escola,
+  type LinhaMensal,
   type Movimento,
   type Produto,
 } from "./estoque";
+import { detectDuplicateMovements } from "./ai-intelligence";
 
 /** Linha da Página 1 (Controle Semanal — 6 colunas) */
 export interface LinhaPag1Semanal {
@@ -658,10 +662,38 @@ function normKey(s: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/\b(kg|und|un|pct|de|5kg|1kg|500g|400g|350g|250g|120g|1l|litro|maco|molho|dz)\b/g, "")
+    .replace(
+      /\b(kg|und|un|pct|de|em|tipo|embalagem|pedacos|picada|5kg|1kg|500g|400g|350g|250g|120g|1l|litro|maco|molho|dz)\b/g,
+      "",
+    )
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
+
+const ALIAS_MAP: Record<string, string[]> = {
+  "carne peito frango": ["peito frango", "frango peito", "frango"],
+  "peito frango": ["carne peito frango", "frango peito", "frango"],
+  "biscoito sal": ["biscoito salgado", "biscoito cream cracker", "biscoito agua sal"],
+  "biscoito salgado": ["biscoito sal", "biscoito cream cracker", "biscoito agua sal"],
+  "carne bovina musculo": ["musculo", "carne musculo", "acem", "carne bovina"],
+  "carne bovina patinho": ["patinho", "carne patinho", "carne bovina", "carne moida"],
+  "carne suina pernil": ["carne suina", "pernil", "pernil suino", "suino"],
+  "carne suina": ["carne suina pernil", "pernil", "pernil suino", "suino"],
+  "couve manteiga": ["couve", "couve folha"],
+  "iogurte frutas": ["iogurte", "bebida lactea"],
+  "leite integral": ["leite", "leite c", "leite uht"],
+  "leite c": ["leite", "leite integral", "leite uht"],
+  "pao hot dog": ["pao", "pao frances", "pao careca"],
+  "macarrao argolinha": ["macarrao", "macarrao padre nosso", "macarrao sopa"],
+  "macarrao padre nosso": ["macarrao argolinha", "macarrao", "macarrao sopa"],
+  "laranja lima": ["laranja"],
+  "laranja pera": ["laranja"],
+  "abobora madura": ["abobora"],
+  "acucar cristal": ["acucar", "acucar refinado"],
+  "batata inglesa": ["batata"],
+  "po cafe": ["cafe", "cafe po"],
+  "farinha mandioca": ["farinha"],
+};
 
 /** Encontra produto correspondente no catálogo apenas quando há correspondência confiável */
 export function matchProdutoConfiavel(generoLabel: string, produtos: Produto[]): Produto | null {
@@ -674,14 +706,28 @@ export function matchProdutoConfiavel(generoLabel: string, produtos: Produto[]):
     if (pk === target) return p;
   }
 
-  // 2. Correspondência por prefixo principal inequívoco
+  // 2. Correspondência por sinônimos oficiais (ALIAS_MAP)
+  const aliases = ALIAS_MAP[target] ?? [];
+  for (const alias of aliases) {
+    for (const p of produtos) {
+      const pk = normKey(p.nome);
+      if (pk === alias) return p;
+    }
+  }
+
+  // 3. Correspondência por prefixo principal inequívoco ou palavras contidas
   for (const p of produtos) {
     const pk = normKey(p.nome);
     if (!pk) continue;
     const targetWords = target.split(" ");
     const prodWords = pk.split(" ");
     if (targetWords[0] && prodWords[0] && targetWords[0] === prodWords[0]) {
-      if (targetWords.length === 1 || pk.includes(target) || target.includes(pk)) {
+      if (
+        targetWords.length === 1 ||
+        prodWords.length === 1 ||
+        pk.includes(target) ||
+        target.includes(pk)
+      ) {
         return p;
       }
     }
@@ -690,7 +736,8 @@ export function matchProdutoConfiavel(generoLabel: string, produtos: Produto[]):
 }
 
 /** Preenche automaticamente um relatório a partir dos dados reais de estoque da escola para o mês/ano/semana selecionados,
- * sem inventar valores para gêneros sem movimentação ou correspondência.
+ * recuperando o estoque final do mês anterior, separando entradas de Mercado e Agricultura Familiar,
+ * subtraindo saídas e calculando os saldos finais nas 4 páginas do Mapa Oficial.
  */
 export function preencherRelatorioComEstoqueReal(params: {
   relatorioAtual: RelatorioOficialPaduaData;
@@ -700,11 +747,23 @@ export function preencherRelatorioComEstoqueReal(params: {
   ano: number;
   mes: number;
   semanaIdx?: number;
+  snapshotFechado?: LinhaMensal[] | null;
+  relatorioMesAnterior?: RelatorioOficialPaduaData | null;
 }): {
   relatorio: RelatorioOficialPaduaData;
   generosCorrespondidos: number;
 } {
-  const { relatorioAtual, escola, produtos, movimentos, ano, mes, semanaIdx = 0 } = params;
+  const {
+    relatorioAtual,
+    escola,
+    produtos,
+    movimentos,
+    ano,
+    mes,
+    semanaIdx = 0,
+    snapshotFechado,
+    relatorioMesAnterior,
+  } = params;
   const weeks = weekRangesOfMonth(ano, mes);
   const activeWeek = weeks[Math.min(semanaIdx, weeks.length - 1)] ?? weeks[0]!;
 
@@ -717,57 +776,219 @@ export function preencherRelatorioComEstoqueReal(params: {
   );
   const mapSemanal = new Map(planilhaSemanal.map((l) => [l.product_id, l]));
 
-  const planilhaMensal = computeMensal(produtos, movimentos, ano, mes);
+  const planilhaMensal =
+    snapshotFechado && snapshotFechado.length > 0
+      ? snapshotFechado
+      : computeMensal(produtos, movimentos, ano, mes);
   const mapMensal = new Map(planilhaMensal.map((l) => [l.product_id, l]));
 
-  let correspondidos = 0;
+  // Mapa opcional de saldos finais do relatório salvo no mês anterior (continuidade entre meses)
+  const mapAntPag1 = new Map<string, number>();
+  const mapAntPag3e4 = new Map<string, { fimMercado: number; fimAgric: number }>();
+  if (relatorioMesAnterior) {
+    for (const l of relatorioMesAnterior.pag1.linhas) {
+      mapAntPag1.set(normKey(l.genero), l.estoqueFinal);
+    }
+    for (const l of [
+      ...relatorioMesAnterior.pag3e4.linhasPag3,
+      ...relatorioMesAnterior.pag3e4.linhasPag4,
+    ]) {
+      mapAntPag3e4.set(normKey(l.genero), { fimMercado: l.fimMercado, fimAgric: l.fimAgric });
+    }
+  }
 
-  const novasLinhasPag1 = relatorioAtual.pag1.linhas.map((linha) => {
-    const prod = matchProdutoConfiavel(linha.genero, produtos);
-    if (!prod) return recalcLinhaPag1(linha);
+  let correspondidos = 0;
+  const matchedProdIdsPag1 = new Set<string>();
+  const matchedProdIdsPag3e4 = new Set<string>();
+
+  // Gêneros base das 4 páginas (garante que os nomes originais sejam preservados)
+  const baseGenerosPag1 =
+    relatorioAtual.pag1.linhas.length === GENEROS_PAGINA_1.length
+      ? GENEROS_PAGINA_1
+      : relatorioAtual.pag1.linhas.map((l) => l.genero);
+
+  const novasLinhasPag1 = baseGenerosPag1.map((generoLabel) => {
+    const prod = matchProdutoConfiavel(generoLabel, produtos);
+    const antCarry = mapAntPag1.get(normKey(generoLabel)) ?? 0;
+    if (!prod) {
+      return recalcLinhaPag1({
+        genero: generoLabel,
+        estoqueAnterior: antCarry,
+        entrada: 0,
+        estoqueAtual: antCarry,
+        saida: 0,
+        estoqueFinal: antCarry,
+      });
+    }
+    matchedProdIdsPag1.add(prod.id);
     const sem = mapSemanal.get(prod.id);
-    if (!sem) return recalcLinhaPag1({ ...linha, estoqueAnterior: 0, entrada: 0, saida: 0 });
-    correspondidos++;
+    if (!sem) {
+      return recalcLinhaPag1({
+        genero: generoLabel,
+        estoqueAnterior: antCarry,
+        entrada: 0,
+        estoqueAtual: antCarry,
+        saida: 0,
+        estoqueFinal: antCarry,
+      });
+    }
+    const antVal = sem.ant_t !== 0 ? sem.ant_t : antCarry;
+    if (antVal !== 0 || sem.ent_t !== 0 || sem.sai_t !== 0 || sem.fim_t !== 0) {
+      correspondidos++;
+    }
     return recalcLinhaPag1({
-      genero: linha.genero,
-      estoqueAnterior: sem.ant_t,
+      genero: generoLabel,
+      estoqueAnterior: antVal,
       entrada: sem.ent_t,
-      estoqueAtual: sem.ant_t + sem.ent_t,
+      estoqueAtual: antVal + sem.ent_t,
       saida: sem.sai_t,
-      estoqueFinal: sem.fim_t,
+      estoqueFinal: antVal + sem.ent_t - sem.sai_t,
     });
   });
 
-  const preencherLinhaMensal = (linha: LinhaPag3e4Mensal): LinhaPag3e4Mensal => {
-    const prod = matchProdutoConfiavel(linha.genero, produtos);
-    if (!prod) return recalcLinhaPag3e4(linha);
+  // Se houver produtos cadastrados no banco com saldo/movimento na semana que não casaram com os 43 nomes padrão,
+  // preenche nas últimas linhas disponíveis que estejam zeradas, mantendo exatamente as 43 linhas da Página 1.
+  const extrasSemanal = planilhaSemanal.filter(
+    (s) =>
+      !matchedProdIdsPag1.has(s.product_id) &&
+      (s.ant_t !== 0 || s.ent_t !== 0 || s.sai_t !== 0 || s.fim_t !== 0),
+  );
+  for (const extra of extrasSemanal) {
+    const prod = produtos.find((p) => p.id === extra.product_id);
+    if (!prod) continue;
+    const emptyIdx = novasLinhasPag1.findIndex(
+      (l) =>
+        !matchProdutoConfiavel(l.genero, produtos) &&
+        l.estoqueAnterior === 0 &&
+        l.entrada === 0 &&
+        l.saida === 0 &&
+        l.estoqueFinal === 0,
+    );
+    if (emptyIdx >= 0) {
+      matchedProdIdsPag1.add(prod.id);
+      correspondidos++;
+      novasLinhasPag1[emptyIdx] = recalcLinhaPag1({
+        genero: `${prod.nome} - ${formatUnidade(prod)}`,
+        estoqueAnterior: extra.ant_t,
+        entrada: extra.ent_t,
+        estoqueAtual: extra.ant_t + extra.ent_t,
+        saida: extra.sai_t,
+        estoqueFinal: extra.fim_t,
+      });
+    }
+  }
+
+  const preencherLinhaMensal = (generoLabel: string): LinhaPag3e4Mensal => {
+    const prod = matchProdutoConfiavel(generoLabel, produtos);
+    const antCarry = mapAntPag3e4.get(normKey(generoLabel)) ?? { fimMercado: 0, fimAgric: 0 };
+    if (!prod) {
+      return recalcLinhaPag3e4({
+        genero: generoLabel,
+        antMercado: antCarry.fimMercado,
+        antAgric: antCarry.fimAgric,
+        entMercado: 0,
+        entAgric: 0,
+        estMercado: antCarry.fimMercado,
+        estAgric: antCarry.fimAgric,
+        saiMercado: 0,
+        saiAgric: 0,
+        fimMercado: antCarry.fimMercado,
+        fimAgric: antCarry.fimAgric,
+      });
+    }
+    matchedProdIdsPag3e4.add(prod.id);
     const men = mapMensal.get(prod.id);
     if (!men) {
       return recalcLinhaPag3e4({
-        ...linha,
-        antMercado: 0,
-        antAgric: 0,
+        genero: generoLabel,
+        antMercado: antCarry.fimMercado,
+        antAgric: antCarry.fimAgric,
         entMercado: 0,
         entAgric: 0,
+        estMercado: antCarry.fimMercado,
+        estAgric: antCarry.fimAgric,
         saiMercado: 0,
         saiAgric: 0,
+        fimMercado: antCarry.fimMercado,
+        fimAgric: antCarry.fimAgric,
       });
     }
-    correspondidos++;
+    const antM = men.ant_m !== 0 ? men.ant_m : antCarry.fimMercado;
+    const antA = men.ant_a !== 0 ? men.ant_a : antCarry.fimAgric;
+    if (
+      antM !== 0 ||
+      antA !== 0 ||
+      men.ent_m !== 0 ||
+      men.ent_a !== 0 ||
+      men.sai_m !== 0 ||
+      men.sai_a !== 0
+    ) {
+      correspondidos++;
+    }
     return recalcLinhaPag3e4({
-      genero: linha.genero,
-      antMercado: men.ant_m,
-      antAgric: men.ant_a,
+      genero: generoLabel,
+      antMercado: antM,
+      antAgric: antA,
       entMercado: men.ent_m,
       entAgric: men.ent_a,
-      estMercado: men.ant_m + men.ent_m,
-      estAgric: men.ant_a + men.ent_a,
+      estMercado: antM + men.ent_m,
+      estAgric: antA + men.ent_a,
       saiMercado: men.sai_m,
       saiAgric: men.sai_a,
-      fimMercado: men.fim_m,
-      fimAgric: men.fim_a,
+      fimMercado: antM + men.ent_m - men.sai_m,
+      fimAgric: antA + men.ent_a - men.sai_a,
     });
   };
+
+  const novasLinhasPag3 = GENEROS_PAGINA_3.map((g) => preencherLinhaMensal(g));
+  const novasLinhasPag4 = GENEROS_PAGINA_4.map((g) => preencherLinhaMensal(g));
+
+  // Se houver produtos no banco com saldo/movimento mensal que não casaram com os 39 nomes das Páginas 3 e 4,
+  // aloca nas linhas sem movimentação para que nenhum lançamento de estoque fique de fora do Mapa Oficial.
+  const extrasMensal = planilhaMensal.filter(
+    (m) =>
+      !matchedProdIdsPag3e4.has(m.product_id) &&
+      (m.ant_t !== 0 || m.ent_t !== 0 || m.sai_t !== 0 || m.fim_t !== 0),
+  );
+  for (const extra of extrasMensal) {
+    const prod = produtos.find((p) => p.id === extra.product_id);
+    if (!prod) continue;
+    const isZeroRow = (l: LinhaPag3e4Mensal) =>
+      !matchProdutoConfiavel(l.genero, produtos) &&
+      l.antMercado === 0 &&
+      l.antAgric === 0 &&
+      l.entMercado === 0 &&
+      l.entAgric === 0 &&
+      l.saiMercado === 0 &&
+      l.saiAgric === 0;
+
+    const idxP3 = novasLinhasPag3.findIndex(isZeroRow);
+    const novaLinha = recalcLinhaPag3e4({
+      genero: `${prod.nome} - ${formatUnidade(prod)}`,
+      antMercado: extra.ant_m,
+      antAgric: extra.ant_a,
+      entMercado: extra.ent_m,
+      entAgric: extra.ent_a,
+      estMercado: extra.ant_m + extra.ent_m,
+      estAgric: extra.ant_a + extra.ent_a,
+      saiMercado: extra.sai_m,
+      saiAgric: extra.sai_a,
+      fimMercado: extra.fim_m,
+      fimAgric: extra.fim_a,
+    });
+    if (idxP3 >= 0) {
+      novasLinhasPag3[idxP3] = novaLinha;
+      matchedProdIdsPag3e4.add(prod.id);
+      correspondidos++;
+    } else {
+      const idxP4 = novasLinhasPag4.findIndex(isZeroRow);
+      if (idxP4 >= 0) {
+        novasLinhasPag4[idxP4] = novaLinha;
+        matchedProdIdsPag3e4.add(prod.id);
+        correspondidos++;
+      }
+    }
+  }
 
   const mesNome = MESES[mes - 1] ?? "Outubro";
   const d1 = activeWeek.start.slice(8, 10);
@@ -800,11 +1021,187 @@ export function preencherRelatorioComEstoqueReal(params: {
         ...relatorioAtual.pag3e4,
         escola: escola.nome,
         mes: mesNome,
-        linhasPag3: relatorioAtual.pag3e4.linhasPag3.map(preencherLinhaMensal),
-        linhasPag4: relatorioAtual.pag3e4.linhasPag4.map(preencherLinhaMensal),
+        linhasPag3: novasLinhasPag3,
+        linhasPag4: novasLinhasPag4,
       },
     },
   };
+}
+
+export interface DiagnosticoMapaOficial {
+  // Totais consolidados do Mês (Páginas 3 e 4)
+  totalAntMercado: number;
+  totalAntAgric: number;
+  totalAntGeral: number;
+  totalEntMercado: number;
+  totalEntAgric: number;
+  totalEntGeral: number;
+  totalSaiMercado: number;
+  totalSaiAgric: number;
+  totalSaiGeral: number;
+  totalFimMercado: number;
+  totalFimAgric: number;
+  totalFimGeral: number;
+  generosComMovimentoMes: number;
+  generosComMovimentoSemana: number;
+  // Campos pendentes para conferência antes de gerar o PDF
+  camposFaltantes: { pagina: number; campo: string; descricao: string }[];
+  // Alertas de segurança (duplicidades no mês, saldos negativos)
+  duplicidadesMes: { produtoNome: string; data: string; quantidade: number }[];
+  saldosNegativos: string[];
+}
+
+/** Realiza conferência automática dos cálculos, totais, duplicidades e campos obrigatórios das 4 páginas antes de gerar o PDF */
+export function diagnosticarMapaOficial(params: {
+  relatorio: RelatorioOficialPaduaData;
+  produtos: Produto[];
+  movimentos: Movimento[];
+  ano: number;
+  mes: number;
+}): DiagnosticoMapaOficial {
+  const { relatorio, produtos, movimentos, ano, mes } = params;
+  const todasMensais = [...relatorio.pag3e4.linhasPag3, ...relatorio.pag3e4.linhasPag4];
+
+  let totalAntMercado = 0;
+  let totalAntAgric = 0;
+  let totalEntMercado = 0;
+  let totalEntAgric = 0;
+  let totalSaiMercado = 0;
+  let totalSaiAgric = 0;
+  let totalFimMercado = 0;
+  let totalFimAgric = 0;
+  let generosComMovimentoMes = 0;
+  const saldosNegativos: string[] = [];
+
+  for (const l of todasMensais) {
+    totalAntMercado = r(totalAntMercado + l.antMercado);
+    totalAntAgric = r(totalAntAgric + l.antAgric);
+    totalEntMercado = r(totalEntMercado + l.entMercado);
+    totalEntAgric = r(totalEntAgric + l.entAgric);
+    totalSaiMercado = r(totalSaiMercado + l.saiMercado);
+    totalSaiAgric = r(totalSaiAgric + l.saiAgric);
+    totalFimMercado = r(totalFimMercado + l.fimMercado);
+    totalFimAgric = r(totalFimAgric + l.fimAgric);
+
+    if (
+      l.antMercado !== 0 ||
+      l.antAgric !== 0 ||
+      l.entMercado !== 0 ||
+      l.entAgric !== 0 ||
+      l.saiMercado !== 0 ||
+      l.saiAgric !== 0
+    ) {
+      generosComMovimentoMes++;
+    }
+    if (l.fimMercado < 0 || l.fimAgric < 0) {
+      saldosNegativos.push(`${l.genero} (Págs. 3/4)`);
+    }
+  }
+
+  let generosComMovimentoSemana = 0;
+  for (const l of relatorio.pag1.linhas) {
+    if (l.estoqueAnterior !== 0 || l.entrada !== 0 || l.saida !== 0 || l.estoqueFinal !== 0) {
+      generosComMovimentoSemana++;
+    }
+    if (l.estoqueFinal < 0) {
+      saldosNegativos.push(`${l.genero} (Pág. 1)`);
+    }
+  }
+
+  const camposFaltantes: { pagina: number; campo: string; descricao: string }[] = [];
+  if (!relatorio.pag1.escolaCreche.trim()) {
+    camposFaltantes.push({
+      pagina: 1,
+      campo: "ESCOLA/CRECHE",
+      descricao: "Nome da escola na Página 1 não informado",
+    });
+  }
+  if (!relatorio.pag1.numAlunos.trim()) {
+    camposFaltantes.push({
+      pagina: 1,
+      campo: "Nº DE ALUNOS",
+      descricao: "Informe o Nº de alunos atendidos na Página 1",
+    });
+  }
+  if (!relatorio.pag2.email.trim()) {
+    camposFaltantes.push({
+      pagina: 2,
+      campo: "E-mail",
+      descricao: "Informe o e-mail da Unidade Escolar na Página 2",
+    });
+  }
+  if (!relatorio.pag2.diasLetivos.trim()) {
+    camposFaltantes.push({
+      pagina: 2,
+      campo: "Nº de dias letivos",
+      descricao: "Informe o número de dias letivos do mês na Página 2",
+    });
+  }
+  if (
+    !relatorio.pag2.horarioIntegral &&
+    !relatorio.pag2.horarioParcial &&
+    !relatorio.pag2.turnoManha &&
+    !relatorio.pag2.turnoTarde
+  ) {
+    camposFaltantes.push({
+      pagina: 2,
+      campo: "Horário / Turno",
+      descricao: "Marque ao menos um Horário ou Turno de funcionamento na Página 2",
+    });
+  }
+  if (!relatorio.pag2.totalRefeicoesServidas.trim()) {
+    camposFaltantes.push({
+      pagina: 2,
+      campo: "Total de refeições Servidas",
+      descricao: "Informe o Total de refeições servidas na tabela da Página 2",
+    });
+  }
+  if (!relatorio.pag2.numMerendeiras.trim()) {
+    camposFaltantes.push({
+      pagina: 2,
+      campo: "Nº de merendeiras",
+      descricao: "Informe o Nº de merendeiras na Unidade Escolar na Página 2",
+    });
+  }
+
+  const { start, end } = monthRange(ano, mes);
+  const movsDoMes = movimentos.filter((m) => m.data >= start && m.data < end);
+  const duplicidadesMes = detectDuplicateMovements(movsDoMes, produtos).map((d) => ({
+    produtoNome: d.produtoNome,
+    data: d.data,
+    quantidade: d.quantidade,
+  }));
+
+  return {
+    totalAntMercado,
+    totalAntAgric,
+    totalAntGeral: r(totalAntMercado + totalAntAgric),
+    totalEntMercado,
+    totalEntAgric,
+    totalEntGeral: r(totalEntMercado + totalEntAgric),
+    totalSaiMercado,
+    totalSaiAgric,
+    totalSaiGeral: r(totalSaiMercado + totalSaiAgric),
+    totalFimMercado,
+    totalFimAgric,
+    totalFimGeral: r(totalFimMercado + totalFimAgric),
+    generosComMovimentoMes,
+    generosComMovimentoSemana,
+    camposFaltantes,
+    duplicidadesMes,
+    saldosNegativos,
+  };
+}
+
+/** Busca o relatório salvo mais recente para uma escola e determinado mês/ano */
+export function obterRelatorioSalvoMes(
+  schoolId: string | undefined,
+  ano: number,
+  mes: number,
+): RelatorioOficialPaduaData | null {
+  if (!schoolId) return null;
+  const todos = listarRelatoriosPaduaSalvos(schoolId);
+  return todos.find((r) => r.ano === ano && r.mes === mes) ?? null;
 }
 
 // ============================================================================
