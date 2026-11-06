@@ -5,9 +5,11 @@ import {
   GENEROS_PAGINA_1,
   GENEROS_PAGINA_3,
   GENEROS_PAGINA_4,
+  getPaduaCustomLogos,
   listarRelatoriosPaduaSalvos,
   preencherRelatorioComEstoqueReal,
   salvarRelatorioPadua,
+  savePaduaCustomLogos,
 } from "./padua-relatorio-oficial";
 import type { Escola } from "./app-context";
 import type { Movimento, Produto } from "./estoque";
@@ -198,5 +200,31 @@ describe("Modelo Oficial PDF 4 Páginas — Prefeitura Municipal de Santo Antôn
     const salvos = listarRelatoriosPaduaSalvos(escolaTeste.id);
     expect(salvos.length).toBe(1);
     expect(salvos[0]?.schoolName).toBe(escolaTeste.nome);
+  });
+
+  it("4. Permite editar, salvar e restaurar as logos (Brasão esquerdo e Logo da Secretaria direita) do Mapa Oficial", () => {
+    const fakeLogoLeft =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    const fakeLogoRight =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+    savePaduaCustomLogos({
+      logoEsquerdaDataUrl: fakeLogoLeft,
+      logoDireitaDataUrl: fakeLogoRight,
+      prefeitura: "Prefeitura Municipal Customizada",
+    });
+
+    const salvo = getPaduaCustomLogos();
+    expect(salvo.logoEsquerdaDataUrl).toBe(fakeLogoLeft);
+    expect(salvo.logoDireitaDataUrl).toBe(fakeLogoRight);
+
+    const novoRelatorio = criarRelatorioPaduaEmBranco({
+      escola: escolaTeste,
+      ano: 2026,
+      mes: 10,
+    });
+    expect(novoRelatorio.logoEsquerdaDataUrl).toBe(fakeLogoLeft);
+    expect(novoRelatorio.logoDireitaDataUrl).toBe(fakeLogoRight);
+    expect(novoRelatorio.prefeitura).toBe("Prefeitura Municipal Customizada");
   });
 });

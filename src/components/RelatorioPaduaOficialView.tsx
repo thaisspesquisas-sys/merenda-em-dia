@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
+  normalizeLogoImageFile,
   recalcLinhaPag1,
   recalcLinhaPag3e4,
+  savePaduaCustomLogos,
   type LinhaPag1Semanal,
   type LinhaPag3e4Mensal,
   type RelatorioOficialPaduaData,
@@ -19,9 +21,27 @@ function fmtNum(n: number): string {
   return n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 3 });
 }
 
-/** Brasão Vetorial Fiel da Prefeitura Municipal de Santo Antônio de Pádua */
-function BrasaoPaduaSvg({ size = 54 }: { size?: number }) {
-  return (
+/** Brasão Vetorial Fiel da Prefeitura Municipal de Santo Antônio de Pádua (ou logo customizada) */
+export function BrasaoPaduaSvg({
+  size = 54,
+  customDataUrl,
+  editable,
+  onSelectFile,
+}: {
+  size?: number;
+  customDataUrl?: string | null;
+  editable?: boolean;
+  onSelectFile?: (file: File) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const content = customDataUrl ? (
+    <img
+      src={customDataUrl}
+      alt="Brasão / Logo Esquerda"
+      style={{ width: size, height: size * 1.15 }}
+      className="shrink-0 object-contain"
+    />
+  ) : (
     <svg
       width={size}
       height={size * 1.15}
@@ -70,11 +90,55 @@ function BrasaoPaduaSvg({ size = 54 }: { size?: number }) {
       />
     </svg>
   );
+
+  if (!editable || !onSelectFile) return content;
+
+  return (
+    <div
+      onClick={() => inputRef.current?.click()}
+      title="Clique para trocar o Brasão / Logo Esquerda"
+      className="group relative shrink-0 cursor-pointer rounded border border-transparent p-0.5 transition hover:border-amber-500 hover:bg-amber-50/70 print:border-none print:p-0"
+    >
+      {content}
+      <span className="no-print pointer-events-none absolute inset-x-0 bottom-0 rounded bg-black/75 px-1 py-0.5 text-center text-[8px] font-semibold text-white opacity-0 transition group-hover:opacity-100">
+        Trocar logo
+      </span>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onSelectFile(f);
+          e.target.value = "";
+        }}
+      />
+    </div>
+  );
 }
 
-/** Logotipo Vetorial Fiel da Secretaria Municipal de Educação ("SECRETARIA DE EDUCAÇÃO - Escrevendo um novo futuro!") */
-function LogoSecretariaEducacaoSvg({ width = 88 }: { width?: number }) {
-  return (
+/** Logotipo Vetorial Fiel da Secretaria Municipal de Educação (ou logo customizada) */
+export function LogoSecretariaEducacaoSvg({
+  width = 88,
+  customDataUrl,
+  editable,
+  onSelectFile,
+}: {
+  width?: number;
+  customDataUrl?: string | null;
+  editable?: boolean;
+  onSelectFile?: (file: File) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const content = customDataUrl ? (
+    <img
+      src={customDataUrl}
+      alt="Logo Direita / Secretaria"
+      style={{ width, height: width * 0.68 }}
+      className="shrink-0 object-contain"
+    />
+  ) : (
     <div style={{ width }} className="flex shrink-0 flex-col items-center text-center leading-none">
       <svg width={width * 0.72} height={width * 0.42} viewBox="0 0 90 50" fill="none">
         <rect x="10" y="6" width="16" height="40" rx="2" fill="#1E3A8A" />
@@ -110,6 +174,32 @@ function LogoSecretariaEducacaoSvg({ width = 88 }: { width?: number }) {
       </div>
     </div>
   );
+
+  if (!editable || !onSelectFile) return content;
+
+  return (
+    <div
+      onClick={() => inputRef.current?.click()}
+      title="Clique para trocar a Logo da Secretaria / Logo Direita"
+      className="group relative shrink-0 cursor-pointer rounded border border-transparent p-0.5 transition hover:border-amber-500 hover:bg-amber-50/70 print:border-none print:p-0"
+    >
+      {content}
+      <span className="no-print pointer-events-none absolute inset-x-0 bottom-0 rounded bg-black/75 px-1 py-0.5 text-center text-[8px] font-semibold text-white opacity-0 transition group-hover:opacity-100">
+        Trocar logo
+      </span>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onSelectFile(f);
+          e.target.value = "";
+        }}
+      />
+    </div>
+  );
 }
 
 export function RelatorioPaduaOficialView({
@@ -118,6 +208,27 @@ export function RelatorioPaduaOficialView({
   onChange,
 }: RelatorioPaduaOficialViewProps) {
   const [abaMobile, setAbaMobile] = useState<"todas" | "p1" | "p2" | "p3" | "p4">("todas");
+
+  async function handleLogoUpload(side: "left" | "right", file: File) {
+    try {
+      const dataUrl = await normalizeLogoImageFile(file);
+      const next: RelatorioOficialPaduaData =
+        side === "left"
+          ? { ...data, logoEsquerdaDataUrl: dataUrl }
+          : { ...data, logoDireitaDataUrl: dataUrl };
+      onChange(next);
+      savePaduaCustomLogos({
+        logoEsquerdaDataUrl: next.logoEsquerdaDataUrl ?? null,
+        logoDireitaDataUrl: next.logoDireitaDataUrl ?? null,
+        prefeitura: next.prefeitura,
+        estado: next.estado,
+        secretaria: next.secretaria,
+        departamento: next.departamento,
+      });
+    } catch {
+      // ignora erro de leitura
+    }
+  }
 
   function updatePag1Linha(idx: number, patch: Partial<LinhaPag1Semanal>) {
     const novas = data.pag1.linhas.map((l, i) =>
@@ -199,16 +310,48 @@ export function RelatorioPaduaOficialView({
             {/* Cabeçalho da Página 1 (alinhado sobre a largura da tabela como no PDF original) */}
             <div style={{ width: "136mm" }}>
               <div className="flex items-center justify-between gap-2">
-                <BrasaoPaduaSvg size={42} />
+                <BrasaoPaduaSvg
+                  size={42}
+                  customDataUrl={data.logoEsquerdaDataUrl}
+                  editable={editable}
+                  onSelectFile={(f) => void handleLogoUpload("left", f)}
+                />
                 <div
-                  className="text-center leading-tight"
+                  className="flex-1 text-center leading-tight"
                   style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: "13px" }}
                 >
-                  <div>{data.prefeitura}</div>
-                  <div>{data.secretaria}</div>
-                  <div>{data.departamento}</div>
+                  {editable ? (
+                    <>
+                      <input
+                        value={data.prefeitura}
+                        onChange={(e) => onChange({ ...data, prefeitura: e.target.value })}
+                        className={`w-full text-center ${inputBaseClass}`}
+                      />
+                      <input
+                        value={data.secretaria}
+                        onChange={(e) => onChange({ ...data, secretaria: e.target.value })}
+                        className={`w-full text-center ${inputBaseClass}`}
+                      />
+                      <input
+                        value={data.departamento}
+                        onChange={(e) => onChange({ ...data, departamento: e.target.value })}
+                        className={`w-full text-center ${inputBaseClass}`}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <div>{data.prefeitura}</div>
+                      <div>{data.secretaria}</div>
+                      <div>{data.departamento}</div>
+                    </>
+                  )}
                 </div>
-                <LogoSecretariaEducacaoSvg width={78} />
+                <LogoSecretariaEducacaoSvg
+                  width={78}
+                  customDataUrl={data.logoDireitaDataUrl}
+                  editable={editable}
+                  onSelectFile={(f) => void handleLogoUpload("right", f)}
+                />
               </div>
 
               {/* ESCOLA/CRECHE, Nº DE ALUNOS e Quadro Mês/Semana/Dias */}
@@ -501,16 +644,53 @@ export function RelatorioPaduaOficialView({
           >
             {/* Cabeçalho Institucional da Página 2 */}
             <div className="flex items-start justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <BrasaoPaduaSvg size={58} />
-                <div className="leading-snug">
-                  <div className="text-[18px]">{data.prefeitura}</div>
-                  <div className="text-[15.5px]">{data.estado}</div>
-                  <div className="text-[15.5px]">{data.secretaria}</div>
-                  <div className="text-[15.5px]">{data.departamento}</div>
+              <div className="flex flex-1 items-start gap-4">
+                <BrasaoPaduaSvg
+                  size={58}
+                  customDataUrl={data.logoEsquerdaDataUrl}
+                  editable={editable}
+                  onSelectFile={(f) => void handleLogoUpload("left", f)}
+                />
+                <div className="flex-1 leading-snug">
+                  {editable ? (
+                    <>
+                      <input
+                        value={data.prefeitura}
+                        onChange={(e) => onChange({ ...data, prefeitura: e.target.value })}
+                        className={`w-full text-[18px] ${inputBaseClass}`}
+                      />
+                      <input
+                        value={data.estado}
+                        onChange={(e) => onChange({ ...data, estado: e.target.value })}
+                        className={`w-full text-[15.5px] ${inputBaseClass}`}
+                      />
+                      <input
+                        value={data.secretaria}
+                        onChange={(e) => onChange({ ...data, secretaria: e.target.value })}
+                        className={`w-full text-[15.5px] ${inputBaseClass}`}
+                      />
+                      <input
+                        value={data.departamento}
+                        onChange={(e) => onChange({ ...data, departamento: e.target.value })}
+                        className={`w-full text-[15.5px] ${inputBaseClass}`}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-[18px]">{data.prefeitura}</div>
+                      <div className="text-[15.5px]">{data.estado}</div>
+                      <div className="text-[15.5px]">{data.secretaria}</div>
+                      <div className="text-[15.5px]">{data.departamento}</div>
+                    </>
+                  )}
                 </div>
               </div>
-              <LogoSecretariaEducacaoSvg width={92} />
+              <LogoSecretariaEducacaoSvg
+                width={92}
+                customDataUrl={data.logoDireitaDataUrl}
+                editable={editable}
+                onSelectFile={(f) => void handleLogoUpload("right", f)}
+              />
             </div>
 
             {/* Título Centralizado */}
@@ -919,17 +1099,49 @@ export function RelatorioPaduaOficialView({
             }}
           >
             {/* Cabeçalho da Página 3 */}
-            <div className="flex items-center justify-between">
-              <BrasaoPaduaSvg size={44} />
+            <div className="flex items-center justify-between gap-4">
+              <BrasaoPaduaSvg
+                size={44}
+                customDataUrl={data.logoEsquerdaDataUrl}
+                editable={editable}
+                onSelectFile={(f) => void handleLogoUpload("left", f)}
+              />
               <div
-                className="text-center leading-tight"
+                className="flex-1 text-center leading-tight"
                 style={{ fontFamily: "'Times New Roman', Times, serif", fontSize: "14px" }}
               >
-                <div>{data.prefeitura}</div>
-                <div>{data.secretaria}</div>
-                <div>{data.departamento}</div>
+                {editable ? (
+                  <>
+                    <input
+                      value={data.prefeitura}
+                      onChange={(e) => onChange({ ...data, prefeitura: e.target.value })}
+                      className={`w-full text-center ${inputBaseClass}`}
+                    />
+                    <input
+                      value={data.secretaria}
+                      onChange={(e) => onChange({ ...data, secretaria: e.target.value })}
+                      className={`w-full text-center ${inputBaseClass}`}
+                    />
+                    <input
+                      value={data.departamento}
+                      onChange={(e) => onChange({ ...data, departamento: e.target.value })}
+                      className={`w-full text-center ${inputBaseClass}`}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <div>{data.prefeitura}</div>
+                    <div>{data.secretaria}</div>
+                    <div>{data.departamento}</div>
+                  </>
+                )}
               </div>
-              <LogoSecretariaEducacaoSvg width={80} />
+              <LogoSecretariaEducacaoSvg
+                width={80}
+                customDataUrl={data.logoDireitaDataUrl}
+                editable={editable}
+                onSelectFile={(f) => void handleLogoUpload("right", f)}
+              />
             </div>
 
             {/* Linha ESCOLA e Mês / Dias letivos */}

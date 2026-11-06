@@ -53,11 +53,13 @@ export interface RelatorioOficialPaduaData {
   updatedAt: string;
   emitidoPor: string;
 
-  // cabeçalho institucional fixo do documento original
+  // cabeçalho institucional e logotipos (editáveis)
   prefeitura: string;
   estado: string;
   secretaria: string;
   departamento: string;
+  logoEsquerdaDataUrl?: string | null;
+  logoDireitaDataUrl?: string | null;
 
   // PÁGINA 1 — Controle Semanal
   pag1: {
@@ -248,6 +250,75 @@ export function recalcLinhaPag3e4(l: LinhaPag3e4Mensal): LinhaPag3e4Mensal {
   };
 }
 
+const LOGOS_STORAGE_KEY = "merenda_padua_custom_logos_v1";
+
+export interface PaduaCustomLogos {
+  logoEsquerdaDataUrl?: string | null;
+  logoDireitaDataUrl?: string | null;
+  prefeitura?: string;
+  estado?: string;
+  secretaria?: string;
+  departamento?: string;
+}
+
+export function getPaduaCustomLogos(): PaduaCustomLogos {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(LOGOS_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as PaduaCustomLogos) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function savePaduaCustomLogos(logos: PaduaCustomLogos): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LOGOS_STORAGE_KEY, JSON.stringify(logos));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+/** Converte qualquer imagem (PNG, JPG, WEBP, SVG) enviada pelo usuário em um PNG Data URL nítido e dimensionado para tela e PDF */
+export function normalizeLogoImageFile(file: File, maxDim = 360): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Não foi possível ler o arquivo de imagem."));
+    reader.onload = () => {
+      const src = String(reader.result || "");
+      if (!src) {
+        reject(new Error("Imagem vazia."));
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, maxDim / Math.max(img.width || 1, img.height || 1));
+          const w = Math.max(1, Math.round((img.width || 120) * scale));
+          const h = Math.max(1, Math.round((img.height || 120) * scale));
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(src);
+            return;
+          }
+          ctx.clearRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/png"));
+        } catch {
+          resolve(src);
+        }
+      };
+      img.onerror = () => resolve(src);
+      img.src = src;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 /** Cria uma versão em branco do relatório de 4 páginas respeitando rigorosamente o modelo original */
 export function criarRelatorioPaduaEmBranco(params: {
   escola?: Escola | null;
@@ -259,6 +330,7 @@ export function criarRelatorioPaduaEmBranco(params: {
   const nowIso = new Date().toISOString();
   const hojeDate = new Date();
   const escolaNome = params.escola?.nome ?? "";
+  const savedLogos = getPaduaCustomLogos();
 
   return {
     id:
@@ -273,10 +345,12 @@ export function criarRelatorioPaduaEmBranco(params: {
     updatedAt: nowIso,
     emitidoPor: params.emitidoPor || params.escola?.responsavel || "",
 
-    prefeitura: "Prefeitura Municipal de Santo Antônio de Pádua",
-    estado: "Estado do Rio de Janeiro",
-    secretaria: "Secretaria Municipal de Educação",
-    departamento: "Departamento de Alimentação Escolar",
+    prefeitura: savedLogos.prefeitura || "Prefeitura Municipal de Santo Antônio de Pádua",
+    estado: savedLogos.estado || "Estado do Rio de Janeiro",
+    secretaria: savedLogos.secretaria || "Secretaria Municipal de Educação",
+    departamento: savedLogos.departamento || "Departamento de Alimentação Escolar",
+    logoEsquerdaDataUrl: savedLogos.logoEsquerdaDataUrl ?? null,
+    logoDireitaDataUrl: savedLogos.logoDireitaDataUrl ?? null,
 
     pag1: {
       escolaCreche: escolaNome,

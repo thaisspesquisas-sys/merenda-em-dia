@@ -8,8 +8,23 @@ function fmtNumPdf(n: number): string {
   return n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 3 });
 }
 
-/** Desenha o Brasão institucional de Santo Antônio de Pádua em vetor no PDF */
-function drawCoatOfArms(doc: jsPDF, x: number, y: number, w: number, h: number) {
+/** Desenha o Brasão institucional de Santo Antônio de Pádua (ou a logo esquerda personalizada enviada pelo usuário) no PDF */
+function drawCoatOfArms(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  customDataUrl?: string | null,
+) {
+  if (customDataUrl) {
+    try {
+      doc.addImage(customDataUrl, "PNG", x, y, w, h);
+      return;
+    } catch {
+      // fallback para o brasão vetorial caso a imagem falhe
+    }
+  }
   // Coroa mural no topo
   doc.setFillColor(160, 140, 90);
   doc.setDrawColor(40, 40, 40);
@@ -40,8 +55,23 @@ function drawCoatOfArms(doc: jsPDF, x: number, y: number, w: number, h: number) 
   doc.rect(x + w * 0.05, y + h * 0.78, w * 0.9, h * 0.14, "FD");
 }
 
-/** Desenha o logotipo da Secretaria de Educação ("SECRETARIA DE EDUCAÇÃO - Escrevendo um novo futuro!") */
-function drawLogoSecretaria(doc: jsPDF, x: number, y: number, w: number, h: number) {
+/** Desenha o logotipo da Secretaria de Educação (ou a logo direita personalizada enviada pelo usuário) */
+function drawLogoSecretaria(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  customDataUrl?: string | null,
+) {
+  if (customDataUrl) {
+    try {
+      doc.addImage(customDataUrl, "PNG", x, y, w, h);
+      return;
+    } catch {
+      // fallback para a logo vetorial caso a imagem falhe
+    }
+  }
   // Blocos coloridos do ícone
   doc.setFillColor(25, 65, 145);
   doc.rect(x + w * 0.15, y, w * 0.16, h * 0.45, "F");
@@ -78,8 +108,8 @@ export function exportarPdfRelatorioPadua4Paginas(
   // ==========================================================================
   // PÁGINA 1 — CONTROLE SEMANAL (RETRATO A4: 210mm x 297mm)
   // ==========================================================================
-  drawCoatOfArms(doc, 14, 9, 13, 15);
-  drawLogoSecretaria(doc, 133, 9, 22, 15);
+  drawCoatOfArms(doc, 14, 9, 13, 15, data.logoEsquerdaDataUrl);
+  drawLogoSecretaria(doc, 133, 9, 22, 15, data.logoDireitaDataUrl);
 
   doc.setFont("times", "normal");
   doc.setFontSize(10.5);
@@ -201,8 +231,8 @@ export function exportarPdfRelatorioPadua4Paginas(
   // ==========================================================================
   doc.addPage("a4", "portrait");
 
-  drawCoatOfArms(doc, 18, 12, 16, 20);
-  drawLogoSecretaria(doc, 155, 11, 26, 20);
+  drawCoatOfArms(doc, 18, 12, 16, 20, data.logoEsquerdaDataUrl);
+  drawLogoSecretaria(doc, 155, 11, 26, 20, data.logoDireitaDataUrl);
 
   doc.setFont("times", "normal");
   doc.setFontSize(13.5);
@@ -336,8 +366,8 @@ export function exportarPdfRelatorioPadua4Paginas(
   // ==========================================================================
   doc.addPage("a4", "landscape");
 
-  drawCoatOfArms(doc, 14, 8, 13, 14);
-  drawLogoSecretaria(doc, 260, 8, 22, 14);
+  drawCoatOfArms(doc, 14, 8, 13, 14, data.logoEsquerdaDataUrl);
+  drawLogoSecretaria(doc, 260, 8, 22, 14, data.logoDireitaDataUrl);
 
   doc.setFont("times", "normal");
   doc.setFontSize(11);

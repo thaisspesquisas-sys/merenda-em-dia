@@ -8,12 +8,14 @@ import {
   Eye,
   FileSpreadsheet,
   History,
+  ImagePlus,
   Pencil,
   Printer,
   RotateCcw,
   Save,
   Smartphone,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { useApp, useMovimentos, useProdutos } from "@/lib/app-context";
 import { weekRangesOfMonth } from "@/lib/estoque";
@@ -21,16 +23,30 @@ import {
   criarRelatorioPaduaEmBranco,
   criarRelatorioPaduaValoresOriginaisPDF,
   listarRelatoriosPaduaSalvos,
+  normalizeLogoImageFile,
   preencherRelatorioComEstoqueReal,
   recalcLinhaPag1,
   recalcLinhaPag3e4,
   salvarRelatorioPadua,
+  savePaduaCustomLogos,
   type RelatorioOficialPaduaData,
 } from "@/lib/padua-relatorio-oficial";
 import { exportarPdfRelatorioPadua4Paginas } from "@/lib/padua-pdf-export";
-import { RelatorioPaduaOficialView } from "@/components/RelatorioPaduaOficialView";
+import {
+  BrasaoPaduaSvg,
+  LogoSecretariaEducacaoSvg,
+  RelatorioPaduaOficialView,
+} from "@/components/RelatorioPaduaOficialView";
 import { MesAno, NSelect, PageHeader, Panel, SemEscola } from "@/components/ui-kit";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -59,6 +75,7 @@ function MapaMerendaPaduaPage() {
   const [abaCelular, setAbaCelular] = useState<"p1" | "p2" | "p3" | "p4">("p1");
   const [busySave, setBusySave] = useState(false);
   const [histVersion, setHistVersion] = useState(0);
+  const [openLogosModal, setOpenLogosModal] = useState(false);
 
   const [relatorio, setRelatorio] = useState<RelatorioOficialPaduaData>(() =>
     criarRelatorioPaduaValoresOriginaisPDF(escola, nome),
@@ -146,12 +163,76 @@ function MapaMerendaPaduaPage() {
     toast.success("PDF de 4 páginas gerado com fidelidade ao documento original!");
   }
 
+  async function handleTrocarLogoArquivo(side: "left" | "right", file: File) {
+    try {
+      const dataUrl = await normalizeLogoImageFile(file);
+      const next: RelatorioOficialPaduaData =
+        side === "left"
+          ? { ...relatorio, logoEsquerdaDataUrl: dataUrl }
+          : { ...relatorio, logoDireitaDataUrl: dataUrl };
+      setRelatorio(next);
+      savePaduaCustomLogos({
+        logoEsquerdaDataUrl: next.logoEsquerdaDataUrl ?? null,
+        logoDireitaDataUrl: next.logoDireitaDataUrl ?? null,
+        prefeitura: next.prefeitura,
+        estado: next.estado,
+        secretaria: next.secretaria,
+        departamento: next.departamento,
+      });
+      toast.success(
+        side === "left"
+          ? "Logo esquerda (Brasão) atualizada nas páginas 1, 2 e 3!"
+          : "Logo direita (Secretaria de Educação) atualizada nas páginas 1, 2 e 3!",
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao processar a imagem da logo.");
+    }
+  }
+
+  function handleSalvarPadraoLogos() {
+    savePaduaCustomLogos({
+      logoEsquerdaDataUrl: relatorio.logoEsquerdaDataUrl ?? null,
+      logoDireitaDataUrl: relatorio.logoDireitaDataUrl ?? null,
+      prefeitura: relatorio.prefeitura,
+      estado: relatorio.estado,
+      secretaria: relatorio.secretaria,
+      departamento: relatorio.departamento,
+    });
+    setOpenLogosModal(false);
+    toast.success("Logos e cabeçalho institucional salvos como padrão para o Mapa Oficial!");
+  }
+
+  function handleRestaurarLogosOriginais() {
+    const next: RelatorioOficialPaduaData = {
+      ...relatorio,
+      logoEsquerdaDataUrl: null,
+      logoDireitaDataUrl: null,
+      prefeitura: "Prefeitura Municipal de Santo Antônio de Pádua",
+      estado: "Estado do Rio de Janeiro",
+      secretaria: "Secretaria Municipal de Educação",
+      departamento: "Departamento de Alimentação Escolar",
+    };
+    setRelatorio(next);
+    savePaduaCustomLogos({
+      logoEsquerdaDataUrl: null,
+      logoDireitaDataUrl: null,
+      prefeitura: next.prefeitura,
+      estado: next.estado,
+      secretaria: next.secretaria,
+      departamento: next.departamento,
+    });
+    toast.success("Logos e cabeçalho originais de Santo Antônio de Pádua restaurados!");
+  }
+
   return (
     <div className="space-y-5">
       <PageHeader
         title="Mapa de Controle da Merenda Escolar (Modelo Oficial PDF — 4 Páginas)"
         desc={`Reprodução visual e estrutural fiel do documento da SME de Santo Antônio de Pádua — ${escola.nome}`}
       >
+        <Button variant="outline" size="sm" onClick={() => setOpenLogosModal(true)}>
+          <ImagePlus className="h-4 w-4" /> Editar Logos / Brasão
+        </Button>
         <Button variant="outline" size="sm" onClick={handleGerarEmBranco}>
           <RotateCcw className="h-4 w-4" /> Versão em Branco
         </Button>
@@ -219,6 +300,9 @@ function MapaMerendaPaduaPage() {
             Responsável: <b>{relatorio.emitidoPor || nome || "—"}</b>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setOpenLogosModal(true)}>
+              <ImagePlus className="h-4 w-4" /> Logos do Cabeçalho
+            </Button>
             <Button
               size="sm"
               disabled={busySave}
@@ -657,6 +741,160 @@ function MapaMerendaPaduaPage() {
           </div>
         </Panel>
       )}
+
+      {/* MODAL DE EDIÇÃO DAS LOGOS E CABEÇALHO DO MAPA OFICIAL */}
+      <Dialog open={openLogosModal} onOpenChange={setOpenLogosModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar Logos e Cabeçalho do Mapa Oficial (Páginas 1, 2 e 3)</DialogTitle>
+            <DialogDescription>
+              Envie as imagens oficiais (PNG, JPG, WEBP ou SVG) para substituir o Brasão da
+              Prefeitura (esquerda) e a Logo da Secretaria de Educação (direita). As logos são
+              aplicadas automaticamente na visualização na tela, na impressão e na exportação do PDF
+              de 4 páginas.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2 sm:grid-cols-2">
+            {/* Card Logo Esquerda */}
+            <div className="flex flex-col items-center justify-between rounded-xl border bg-muted/20 p-4 text-center">
+              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Logo Esquerda (Brasão / Prefeitura)
+              </div>
+              <div className="my-3 flex h-24 w-full items-center justify-center rounded-lg border bg-white p-2">
+                <BrasaoPaduaSvg size={56} customDataUrl={relatorio.logoEsquerdaDataUrl} />
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Label
+                  htmlFor="upload-logo-esquerda"
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  <ImagePlus className="h-3.5 w-3.5" /> Enviar Imagem
+                </Label>
+                <input
+                  id="upload-logo-esquerda"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleTrocarLogoArquivo("left", f);
+                    e.target.value = "";
+                  }}
+                />
+                {relatorio.logoEsquerdaDataUrl && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setRelatorio({ ...relatorio, logoEsquerdaDataUrl: null })}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Usar Brasão Original
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Card Logo Direita */}
+            <div className="flex flex-col items-center justify-between rounded-xl border bg-muted/20 p-4 text-center">
+              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Logo Direita (Secretaria de Educação)
+              </div>
+              <div className="my-3 flex h-24 w-full items-center justify-center rounded-lg border bg-white p-2">
+                <LogoSecretariaEducacaoSvg
+                  width={100}
+                  customDataUrl={relatorio.logoDireitaDataUrl}
+                />
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Label
+                  htmlFor="upload-logo-direita"
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  <ImagePlus className="h-3.5 w-3.5" /> Enviar Imagem
+                </Label>
+                <input
+                  id="upload-logo-direita"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleTrocarLogoArquivo("right", f);
+                    e.target.value = "";
+                  }}
+                />
+                {relatorio.logoDireitaDataUrl && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setRelatorio({ ...relatorio, logoDireitaDataUrl: null })}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Usar Logo Original
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Textos Institucionais do Cabeçalho */}
+          <div className="grid gap-3 border-t pt-3 sm:grid-cols-2">
+            <div className="grid gap-1">
+              <Label className="text-xs">Linha 1 — Prefeitura / Instituição</Label>
+              <Input
+                value={relatorio.prefeitura}
+                onChange={(e) => setRelatorio({ ...relatorio, prefeitura: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Linha 2 — Estado (exibida na Página 2)</Label>
+              <Input
+                value={relatorio.estado}
+                onChange={(e) => setRelatorio({ ...relatorio, estado: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Linha 3 — Secretaria</Label>
+              <Input
+                value={relatorio.secretaria}
+                onChange={(e) => setRelatorio({ ...relatorio, secretaria: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-xs">Linha 4 — Departamento / Setor</Label>
+              <Input
+                value={relatorio.departamento}
+                onChange={(e) => setRelatorio({ ...relatorio, departamento: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-wrap items-center justify-between gap-2 sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleRestaurarLogosOriginais}
+            >
+              <RotateCcw className="h-4 w-4" /> Restaurar Padrão Original do PDF
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setOpenLogosModal(false)}
+              >
+                Fechar
+              </Button>
+              <Button type="button" size="sm" onClick={handleSalvarPadraoLogos}>
+                <Save className="h-4 w-4" /> Salvar Logos e Aplicar
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
