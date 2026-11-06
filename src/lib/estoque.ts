@@ -13,12 +13,24 @@ export type UnidadeApresentacao =
   | "bandeja"
   | "garrafa";
 
+export interface CodigoBarrasMeta {
+  codigo: string;
+  principal: boolean;
+  marca_apresentacao?: string;
+  unidade_embalagem?: UnidadeApresentacao;
+  fator_conversao?: number;
+  created_at?: string;
+  created_by?: string;
+}
+
 export interface ProdutoMeta {
   unidade_apresentacao?: UnidadeApresentacao;
   fornecedor?: string;
   validade?: string; // YYYY-MM-DD
   lote?: string;
   observacoes?: string;
+  codigo_barras?: string;
+  codigos_barras?: CodigoBarrasMeta[];
 }
 
 export interface Produto {
@@ -34,6 +46,8 @@ export interface Produto {
   validade?: string | null;
   lote?: string | null;
   observacoes?: string | null;
+  codigo_barras?: string | null;
+  codigos_barras?: CodigoBarrasMeta[];
 }
 
 export interface Movimento {
@@ -155,6 +169,13 @@ export function setProductMeta(productId: string, meta: ProdutoMeta) {
 
 export function enrichProduto(p: Produto): Produto {
   const meta = getProductMeta(p.id);
+  const codigos = meta.codigos_barras ?? p.codigos_barras ?? [];
+  const principal =
+    codigos.find((c) => c.principal)?.codigo ??
+    codigos[0]?.codigo ??
+    meta.codigo_barras ??
+    p.codigo_barras ??
+    null;
   return {
     ...p,
     unidade_apresentacao: meta.unidade_apresentacao ?? p.unidade_apresentacao ?? p.unidade,
@@ -162,6 +183,8 @@ export function enrichProduto(p: Produto): Produto {
     validade: meta.validade ?? p.validade ?? null,
     lote: meta.lote ?? p.lote ?? null,
     observacoes: meta.observacoes ?? p.observacoes ?? null,
+    codigo_barras: principal,
+    codigos_barras: codigos,
   };
 }
 

@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Barcode, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { errMsg, useApp } from "@/lib/app-context";
 import {
@@ -14,6 +14,7 @@ import {
   type Movimento,
   type Produto,
 } from "@/lib/estoque";
+import { parseBarcodeMovementMeta } from "@/lib/barcode";
 import { MesAno, NSelect, OrigemBadge, Panel } from "@/components/ui-kit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,8 +37,34 @@ export function MovList({
   const [de, setDe] = useState("");
   const [ate, setAte] = useState("");
   const [prod, setProd] = useState("");
-  const pmap = new Map(produtos.map((p) => [p.id, p]));
+  const [respFiltro, setRespFiltro] = useState("");
+  const [tipoSaidaFiltro, setTipoSaidaFiltro] = useState("");
+  const [origemMovFiltro, setOrigemMovFiltro] = useState<"todas" | "codigo_barras" | "manual">(
+    "todas",
+  );
+
+  const pmap = useMemo(() => new Map(produtos.map((p) => [p.id, p])), [produtos]);
   const { start, end } = monthRange(ano, mes);
+
+  const responsaveisUnicos = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of movs) {
+      if (m.tipo === tipo && m.responsavel?.trim()) {
+        set.add(m.responsavel.trim());
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [movs, tipo]);
+
+  const finalidadesUnicas = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of movs) {
+      if (m.tipo === "saida" && m.destino?.trim()) {
+        set.add(m.destino.trim());
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [movs]);
 
   const lista = movs
     .filter((m) => m.tipo === tipo)
@@ -47,8 +74,23 @@ export function MovList({
       return (!de || m.data >= de) && (!ate || m.data <= ate);
     })
     .filter((m) => !prod || m.product_id === prod)
+    .filter(
+      (m) => !respFiltro || (m.responsavel ?? "").toLowerCase().includes(respFiltro.toLowerCase()),
+    )
+    .filter(
+      (m) =>
+        tipo !== "saida" ||
+        !tipoSaidaFiltro ||
+        (m.destino ?? "").toLowerCase().includes(tipoSaidaFiltro.toLowerCase()),
+    )
+    .filter((m) => {
+      if (origemMovFiltro === "todas") return true;
+      const meta = parseBarcodeMovementMeta(m);
+      return origemMovFiltro === "codigo_barras" ? meta.isBarcodeExit : !meta.isBarcodeExit;
+    })
     .slice()
     .reverse();
+
   const total = lista.reduce((a, m) => a + m.quantidade, 0);
 
   async function excluir(m: Movimento) {
@@ -91,17 +133,17 @@ export function MovList({
               type="date"
               value={de}
               onChange={(e) => setDe(e.target.value)}
-              className="w-40"
+              className="w-36"
             />
             <Input
               type="date"
               value={ate}
               onChange={(e) => setAte(e.target.value)}
-              className="w-40"
+              className="w-36"
             />
           </div>
         )}
-        <NSelect value={prod} onChange={(e) => setProd(e.target.value)} className="w-48">
+        <NSelect value={prod} onChange={(e) => setProd(e.target.value)} className="w-44">
           <option value="">Todos os produtos</option>
           {produtos.map((p) => (
             <option key={p.id} value={p.id}>
@@ -109,15 +151,54 @@ export function MovList({
             </option>
           ))}
         </NSelect>
+        <NSelect
+          value={respFiltro}
+          onChange={(e) => setRespFiltro(e.target.value)}
+          className="w-44"
+        >
+          <option value="">Todos os responsáveis</option>
+          {responsaveisUnicos.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </NSelect>
+        {tipo === "saida" && (
+          <>
+            <NSelect
+              value={tipoSaidaFiltro}
+              onChange={(e) => setTipoSaidaFiltro(e.target.value)}
+              className="w-44"
+            >
+              <option value="">Todos os tipos de saída</option>
+              {finalidadesUnicas.map((fin) => (
+                <option key={fin} value={fin}>
+                  {fin}
+                </option>
+              ))}
+            </NSelect>
+            <NSelect
+              value={origemMovFiltro}
+              onChange={(e) =>
+                setOrigemMovFiltro(e.target.value as "todas" | "codigo_barras" | "manual")
+              }
+              className="w-48"
+            >
+              <option value="todas">Todas as origens de mov.</option>
+              <option value="codigo_barras">Saída por código de barras</option>
+              <option value="manual">Lançamento manual</option>
+            </NSelect>
+          </>
+        )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted text-left text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="p-3">Data</th>
+              <th className="p-3">Data / Hora</th>
               <th className="p-3">Produto</th>
               <th className="p-3 text-right">Quantidade</th>
-              <th className="p-3">Origem</th>
+              <th className="p-3">Origem Recurso</th>
               {tipo === "entrada" ? (
                 <>
                   <th className="p-3">Fornecedor</th>
@@ -127,8 +208,9 @@ export function MovList({
                 </>
               ) : (
                 <>
-                  <th className="p-3">Escola de destino</th>
-                  <th className="p-3">Finalidade</th>
+                  <th className="p-3">Escola</th>
+                  <th className="p-3">Finalidade / Origem Mov.</th>
+                  <th className="p-3">Código Barras / Saldos</th>
                   <th className="p-3">Responsável</th>
                 </>
               )}
@@ -139,23 +221,34 @@ export function MovList({
           <tbody>
             {lista.length === 0 && (
               <tr>
-                <td colSpan={10} className="p-6 text-center text-muted-foreground">
-                  Nenhum registro no período.
+                <td colSpan={11} className="p-6 text-center text-muted-foreground">
+                  Nenhum registro no período com os filtros selecionados.
                 </td>
               </tr>
             )}
             {lista.map((m) => {
               const p = pmap.get(m.product_id);
               const parsedObs = parseMovObservacoes(m.observacoes);
+              const barcodeMeta = parseBarcodeMovementMeta(m);
               const saldoInic = isSaldoInicial(m);
               return (
                 <tr key={m.id} className="border-t">
-                  <td className="whitespace-nowrap p-3">{fmtData(m.data)}</td>
+                  <td className="whitespace-nowrap p-3">
+                    <div>{fmtData(m.data)}</div>
+                    {barcodeMeta.horario && (
+                      <div className="text-[11px] text-muted-foreground">{barcodeMeta.horario}</div>
+                    )}
+                  </td>
                   <td className="p-3 font-medium">
                     {p?.nome}
                     {saldoInic && (
                       <span className="ml-2 inline-block rounded bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
-                        Saldo Inicial Importado
+                        Saldo Inicial
+                      </span>
+                    )}
+                    {barcodeMeta.isBarcodeExit && (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded bg-saida/10 px-1.5 py-0.5 text-[11px] font-semibold text-saida">
+                        <Barcode className="h-3 w-3" /> Saída por código de barras
                       </span>
                     )}
                   </td>
@@ -183,11 +276,38 @@ export function MovList({
                   ) : (
                     <>
                       <td className="p-3">{escola?.nome ?? "—"}</td>
-                      <td className="p-3">{m.destino || "—"}</td>
+                      <td className="p-3">
+                        <div>{m.destino || "—"}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {barcodeMeta.origemMovimentacaoLabel}
+                        </div>
+                      </td>
+                      <td className="p-3 text-xs">
+                        {barcodeMeta.codigoBarras ? (
+                          <div>
+                            <span className="font-mono font-semibold">
+                              EAN: {barcodeMeta.codigoBarras}
+                            </span>
+                            {barcodeMeta.saldoAnterior !== undefined &&
+                              barcodeMeta.saldoPosterior !== undefined && (
+                                <div className="text-[11px] text-muted-foreground">
+                                  Saldo: {fmtQ(barcodeMeta.saldoAnterior)} →{" "}
+                                  <b>{fmtQ(barcodeMeta.saldoPosterior)}</b>
+                                </div>
+                              )}
+                          </div>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                       <td className="p-3">{m.responsavel || "—"}</td>
                     </>
                   )}
-                  <td className="p-3 text-muted-foreground">{parsedObs.texto || "—"}</td>
+                  <td className="p-3 text-muted-foreground">
+                    {barcodeMeta.isBarcodeExit
+                      ? barcodeMeta.textoLimpo || "—"
+                      : parsedObs.texto || "—"}
+                  </td>
                   {isAdmin && (
                     <td className="p-3 text-right">
                       <Button

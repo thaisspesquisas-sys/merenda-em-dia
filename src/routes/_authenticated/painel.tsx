@@ -6,6 +6,7 @@ import {
   ArchiveRestore,
   ArrowDownToLine,
   ArrowUpFromLine,
+  Barcode,
   CalendarClock,
   CheckCircle2,
   Package,
@@ -174,6 +175,11 @@ function Painel() {
   return (
     <div className="space-y-6">
       <PageHeader title="Painel de Controle da Merenda Escolar" desc={escola.nome}>
+        <Button asChild size="sm" className="bg-saida text-white hover:bg-saida/90">
+          <Link to="/saida-rapida">
+            <Barcode className="h-4 w-4" /> Saída Rápida (Código de Barras)
+          </Link>
+        </Button>
         <Button asChild size="sm">
           <Link to="/estoque-anterior">
             <ArchiveRestore className="h-4 w-4" /> Lançar Estoque Anterior

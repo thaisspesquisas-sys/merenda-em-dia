@@ -40,42 +40,12 @@ import {
 } from "@/lib/estoque";
 import { enqueueOfflineMovement } from "@/lib/offline-sync";
 import { DocView } from "@/components/DocView";
-import { NSelect, OrigemBadge, PageHeader, Panel, SemEscola } from "@/components/ui-kit";
+import { Kpi, NSelect, OrigemBadge, PageHeader, Panel, SemEscola } from "@/components/ui-kit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
-function Kpi({
-  label,
-  value,
-  hint,
-  tone,
-}: {
-  label: string;
-  value: string | number;
-  hint?: string;
-  tone?: "primary" | "entrada" | "saida";
-}) {
-  const color =
-    tone === "primary"
-      ? "text-primary"
-      : tone === "entrada"
-        ? "text-entrada"
-        : tone === "saida"
-          ? "text-saida"
-          : "text-foreground";
-  return (
-    <Panel className="p-4">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className={`mt-1.5 font-display text-2xl font-bold tabular-nums ${color}`}>{value}</div>
-      {hint && <div className="mt-1 text-xs text-muted-foreground">{hint}</div>}
-    </Panel>
-  );
-}
 
 export const Route = createFileRoute("/_authenticated/estoque-anterior")({
   head: () =>
@@ -506,8 +476,7 @@ function EstoqueAnteriorPage() {
           acao: autorizacaoDuplicidade ? "duplicidade_autorizada" : "inclusao",
           produtoNome: prodNome,
           detalhes: `Estoque Inicial: ${fmtQ(total)} ${UNIDADE_APRESENTACAO_LABEL[unidadeFinal]} (Mercado: ${fmtQ(m)} | Agric. Familiar: ${fmtQ(a)}) — Ref.: ${fmtData(it.data)}`,
-          justificativa:
-            autorizacaoDuplicidade?.justificativa || it.observacoes.trim() || undefined,
+          justificativa: autorizacaoDuplicidade?.justificativa || it.observacoes.trim() || undefined,
         });
       }
 
@@ -581,8 +550,7 @@ function EstoqueAnteriorPage() {
     setBusy(true);
     try {
       const obsFormatted = formatMovObservacoes({
-        texto:
-          `[ESTOQUE_ANTERIOR] ${editModal.observacoes.trim()} (Corrigido por ${editModal.responsavel}: ${editModal.justificativa.trim()})`.trim(),
+        texto: `[ESTOQUE_ANTERIOR] ${editModal.observacoes.trim()} (Corrigido por ${editModal.responsavel}: ${editModal.justificativa.trim()})`.trim(),
         saldoInicial: true,
       });
 
@@ -904,24 +872,20 @@ function EstoqueAnteriorPage() {
                         <button
                           type="button"
                           onClick={() => updateItem(it.key, { modoProduto: "existente" })}
-                          className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
-                            it.modoProduto === "existente"
-                              ? "bg-card text-foreground shadow-sm"
-                              : "text-muted-foreground"
-                          }`}
+                          className={`rounded-md px-2.5 py-1 font-medium transition-colors ${it.modoProduto === "existente"
+                            ? "bg-card text-foreground shadow-sm"
+                            : "text-muted-foreground"
+                            }`}
                         >
                           Selecionar produto cadastrado
                         </button>
                         <button
                           type="button"
-                          onClick={() =>
-                            updateItem(it.key, { modoProduto: "novo", product_id: "" })
-                          }
-                          className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
-                            it.modoProduto === "novo"
-                              ? "bg-card text-foreground shadow-sm"
-                              : "text-muted-foreground"
-                          }`}
+                          onClick={() => updateItem(it.key, { modoProduto: "novo", product_id: "" })}
+                          className={`rounded-md px-2.5 py-1 font-medium transition-colors ${it.modoProduto === "novo"
+                            ? "bg-card text-foreground shadow-sm"
+                            : "text-muted-foreground"
+                            }`}
                         >
                           + Cadastrar novo produto
                         </button>
@@ -1023,33 +987,30 @@ function EstoqueAnteriorPage() {
                         <button
                           type="button"
                           onClick={() => updateItem(it.key, { modoOrigem: "dividido" })}
-                          className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
-                            it.modoOrigem === "dividido"
-                              ? "bg-primary text-primary-foreground"
-                              : "text-muted-foreground"
-                          }`}
+                          className={`rounded-md px-2.5 py-1 font-medium transition-colors ${it.modoOrigem === "dividido"
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground"
+                            }`}
                         >
                           Dividir: Mercado + Agricultura Familiar
                         </button>
                         <button
                           type="button"
                           onClick={() => updateItem(it.key, { modoOrigem: "mercado" })}
-                          className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
-                            it.modoOrigem === "mercado"
-                              ? "bg-primary text-primary-foreground"
-                              : "text-muted-foreground"
-                          }`}
+                          className={`rounded-md px-2.5 py-1 font-medium transition-colors ${it.modoOrigem === "mercado"
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground"
+                            }`}
                         >
                           Apenas Mercado
                         </button>
                         <button
                           type="button"
                           onClick={() => updateItem(it.key, { modoOrigem: "agricultura" })}
-                          className={`rounded-md px-2.5 py-1 font-medium transition-colors ${
-                            it.modoOrigem === "agricultura"
-                              ? "bg-primary text-primary-foreground"
-                              : "text-muted-foreground"
-                          }`}
+                          className={`rounded-md px-2.5 py-1 font-medium transition-colors ${it.modoOrigem === "agricultura"
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground"
+                            }`}
                         >
                           Apenas Agricultura Familiar
                         </button>
@@ -1241,9 +1202,7 @@ function EstoqueAnteriorPage() {
                 </h2>
                 <p className="text-xs text-muted-foreground">
                   Fórmula aplicada em tempo real:{" "}
-                  <b>
-                    Saldo Atual = Estoque Inicial (Mercado + Agric. Familiar) + Entradas − Saídas
-                  </b>
+                  <b>Saldo Atual = Estoque Inicial (Mercado + Agric. Familiar) + Entradas − Saídas</b>
                 </p>
               </div>
               <Button size="sm" variant="outline" onClick={() => setAba("relatorio")}>
@@ -1288,7 +1247,9 @@ function EstoqueAnteriorPage() {
                       </td>
                       <td className="p-3 text-xs text-muted-foreground">{r.categoria}</td>
                       <td className="p-3">{r.unidade}</td>
-                      <td className="p-3 text-right tabular-nums">{fmtQ(r.quantidade_mercado)}</td>
+                      <td className="p-3 text-right tabular-nums">
+                        {fmtQ(r.quantidade_mercado)}
+                      </td>
                       <td className="p-3 text-right tabular-nums">
                         {fmtQ(r.quantidade_agricultura)}
                       </td>
@@ -1395,7 +1356,9 @@ function EstoqueAnteriorPage() {
                           </span>
                         </td>
                         <td className="p-3">{m.responsavel || "—"}</td>
-                        <td className="p-3 text-xs text-muted-foreground">{parsed.texto || "—"}</td>
+                        <td className="p-3 text-xs text-muted-foreground">
+                          {parsed.texto || "—"}
+                        </td>
                         {(canWrite || isAdmin) && (
                           <td className="whitespace-nowrap p-3 text-right">
                             <Button
@@ -1491,13 +1454,12 @@ function EstoqueAnteriorPage() {
                     </td>
                     <td className="p-3">
                       <span
-                        className={`rounded px-2 py-0.5 text-xs font-semibold ${
-                          log.acao === "inclusao"
-                            ? "bg-entrada-soft text-entrada"
-                            : log.acao === "exclusao_autorizada"
-                              ? "bg-saida-soft text-destructive"
-                              : "bg-warning-soft text-warning"
-                        }`}
+                        className={`rounded px-2 py-0.5 text-xs font-semibold ${log.acao === "inclusao"
+                          ? "bg-entrada-soft text-entrada"
+                          : log.acao === "exclusao_autorizada"
+                            ? "bg-saida-soft text-destructive"
+                            : "bg-warning-soft text-warning"
+                          }`}
                       >
                         {log.acao === "inclusao"
                           ? "Inclusão de Saldo Inicial"
@@ -1523,7 +1485,10 @@ function EstoqueAnteriorPage() {
       )}
 
       {/* MODAL DE BLOQUEIO / AUTORIZAÇÃO CONTRA DUPLICIDADE */}
-      <Dialog open={!!dupAuthModal?.open} onOpenChange={(o) => !o && setDupAuthModal(null)}>
+      <Dialog
+        open={!!dupAuthModal?.open}
+        onOpenChange={(o) => !o && setDupAuthModal(null)}
+      >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-warning">
@@ -1573,7 +1538,9 @@ function EstoqueAnteriorPage() {
                 </Button>
                 <Button
                   disabled={
-                    busy || !dupAuthModal.autorizador.trim() || !dupAuthModal.justificativa.trim()
+                    busy ||
+                    !dupAuthModal.autorizador.trim() ||
+                    !dupAuthModal.justificativa.trim()
                   }
                   onClick={() =>
                     efetivarSalvamento({
@@ -1643,7 +1610,9 @@ function EstoqueAnteriorPage() {
                       step="any"
                       min="0"
                       value={editModal.qtd_mercado}
-                      onChange={(e) => setEditModal({ ...editModal, qtd_mercado: e.target.value })}
+                      onChange={(e) =>
+                        setEditModal({ ...editModal, qtd_mercado: e.target.value })
+                      }
                     />
                   </div>
                   <div className="grid gap-1.5">
@@ -1662,7 +1631,7 @@ function EstoqueAnteriorPage() {
                     Novo Estoque Inicial Total:{" "}
                     {fmtQ(
                       (Number(editModal.qtd_mercado) || 0) +
-                        (Number(editModal.qtd_agricultura) || 0),
+                      (Number(editModal.qtd_agricultura) || 0),
                     )}{" "}
                     {UNIDADE_APRESENTACAO_LABEL[editModal.unidade_apresentacao]}
                   </div>
@@ -1767,7 +1736,9 @@ function EstoqueAnteriorPage() {
                 <Input
                   required
                   value={deleteModal.responsavel}
-                  onChange={(e) => setDeleteModal({ ...deleteModal, responsavel: e.target.value })}
+                  onChange={(e) =>
+                    setDeleteModal({ ...deleteModal, responsavel: e.target.value })
+                  }
                 />
               </div>
               <div className="grid gap-1.5">

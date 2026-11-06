@@ -21,6 +21,7 @@ import { Route as AuthenticatedModelosRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedPainelRouteImport } from './routes/_authenticated/painel'
 import { Route as AuthenticatedProdutosRouteImport } from './routes/_authenticated/produtos'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
+import { Route as AuthenticatedSaidaRapidaRouteImport } from './routes/_authenticated/saida-rapida'
 import { Route as AuthenticatedSaidasRouteImport } from './routes/_authenticated/saidas'
 import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 
@@ -85,6 +86,12 @@ const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
   path: '/relatorios',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSaidaRapidaRoute =
+  AuthenticatedSaidaRapidaRouteImport.update({
+    id: '/saida-rapida',
+    path: '/saida-rapida',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSaidasRoute = AuthenticatedSaidasRouteImport.update({
   id: '/saidas',
   path: '/saidas',
@@ -108,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/painel': typeof AuthenticatedPainelRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/saida-rapida': typeof AuthenticatedSaidaRapidaRoute
   '/saidas': typeof AuthenticatedSaidasRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
 }
@@ -123,6 +131,7 @@ export interface FileRoutesByTo {
   '/painel': typeof AuthenticatedPainelRoute
   '/produtos': typeof AuthenticatedProdutosRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/saida-rapida': typeof AuthenticatedSaidaRapidaRoute
   '/saidas': typeof AuthenticatedSaidasRoute
   '/usuarios': typeof AuthenticatedUsuariosRoute
 }
@@ -140,6 +149,7 @@ export interface FileRoutesById {
   '/_authenticated/painel': typeof AuthenticatedPainelRoute
   '/_authenticated/produtos': typeof AuthenticatedProdutosRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/_authenticated/saida-rapida': typeof AuthenticatedSaidaRapidaRoute
   '/_authenticated/saidas': typeof AuthenticatedSaidasRoute
   '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
 }
@@ -157,6 +167,7 @@ export interface FileRouteTypes {
     | '/painel'
     | '/produtos'
     | '/relatorios'
+    | '/saida-rapida'
     | '/saidas'
     | '/usuarios'
   fileRoutesByTo: FileRoutesByTo
@@ -172,6 +183,7 @@ export interface FileRouteTypes {
     | '/painel'
     | '/produtos'
     | '/relatorios'
+    | '/saida-rapida'
     | '/saidas'
     | '/usuarios'
   id:
@@ -188,6 +200,7 @@ export interface FileRouteTypes {
     | '/_authenticated/painel'
     | '/_authenticated/produtos'
     | '/_authenticated/relatorios'
+    | '/_authenticated/saida-rapida'
     | '/_authenticated/saidas'
     | '/_authenticated/usuarios'
   fileRoutesById: FileRoutesById
@@ -284,6 +297,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/saida-rapida': {
+      id: '/_authenticated/saida-rapida'
+      path: '/saida-rapida'
+      fullPath: '/saida-rapida'
+      preLoaderRoute: typeof AuthenticatedSaidaRapidaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/saidas': {
       id: '/_authenticated/saidas'
       path: '/saidas'
@@ -311,6 +331,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPainelRoute: typeof AuthenticatedPainelRoute
   AuthenticatedProdutosRoute: typeof AuthenticatedProdutosRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
+  AuthenticatedSaidaRapidaRoute: typeof AuthenticatedSaidaRapidaRoute
   AuthenticatedSaidasRoute: typeof AuthenticatedSaidasRoute
   AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
 }
@@ -325,6 +346,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPainelRoute: AuthenticatedPainelRoute,
   AuthenticatedProdutosRoute: AuthenticatedProdutosRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
+  AuthenticatedSaidaRapidaRoute: AuthenticatedSaidaRapidaRoute,
   AuthenticatedSaidasRoute: AuthenticatedSaidasRoute,
   AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
 }

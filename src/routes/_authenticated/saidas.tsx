@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { pageMeta } from "@/lib/page-meta";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Barcode } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { errMsg, useApp, useMovimentos, useProdutos } from "@/lib/app-context";
 import {
@@ -158,7 +159,13 @@ function Saidas() {
       <PageHeader
         title="Controle de Saídas"
         desc={`Retirada e uso na alimentação escolar — ${escola.nome}`}
-      />
+      >
+        <Button asChild className="bg-saida text-white hover:bg-saida/90">
+          <Link to="/saida-rapida">
+            <Barcode className="h-4 w-4" /> Saída Rápida por Código de Barras
+          </Link>
+        </Button>
+      </PageHeader>
       {canWrite && (
         <Panel className="border-l-4 border-l-saida">
           <form onSubmit={salvar} className="grid gap-3 md:grid-cols-4">

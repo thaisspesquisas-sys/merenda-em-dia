@@ -26,6 +26,7 @@ import {
   type Origem,
 } from "@/lib/estoque";
 import { computeExpirationAlerts, generateConsumptionSummaryBySchool } from "@/lib/ai-intelligence";
+import { parseBarcodeMovementMeta } from "@/lib/barcode";
 import { COLS_MENSAL, rowsMensal } from "@/lib/report-cols";
 import type { Cell } from "@/lib/export";
 import { MesAno, NSelect, PageHeader, SemEscola } from "@/components/ui-kit";
@@ -68,9 +69,30 @@ function Relatorios() {
   const [ano, setAno] = useState(now.getFullYear());
   const [semanaIdx, setSemanaIdx] = useState(0);
   const [prodId, setProdId] = useState("");
+  const [respFiltro, setRespFiltro] = useState("");
+  const [tipoSaidaFiltro, setTipoSaidaFiltro] = useState("");
+  const [origemMovFiltro, setOrigemMovFiltro] = useState<"todas" | "codigo_barras" | "manual">(
+    "todas",
+  );
 
   const weeks = useMemo(() => weekRangesOfMonth(ano, mes), [ano, mes]);
   const activeWeek = weeks[Math.min(semanaIdx, weeks.length - 1)] ?? weeks[0]!;
+
+  const responsaveisLista = useMemo(() => {
+    const s = new Set<string>();
+    for (const m of movs.data ?? []) {
+      if (m.responsavel?.trim()) s.add(m.responsavel.trim());
+    }
+    return Array.from(s).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [movs.data]);
+
+  const finalidadesLista = useMemo(() => {
+    const s = new Set<string>();
+    for (const m of movs.data ?? []) {
+      if (m.tipo === "saida" && m.destino?.trim()) s.add(m.destino.trim());
+    }
+    return Array.from(s).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [movs.data]);
 
   const rep = useMemo(() => {
     const ps = prods.data ?? [];
@@ -148,28 +170,39 @@ function Relatorios() {
       columns = [
         "Data",
         "Produto",
+        "Código de Barras",
         "Quantidade",
         "Unid.",
-        "Origem",
-        "Escola de Destino",
+        "Origem Recurso",
+        "Origem da Movimentação",
         "Finalidade",
         "Responsável",
-        "Observações",
+        "Escola",
       ];
       rows = doMes
         .filter((m) => m.tipo === "saida")
+        .filter((m) => !prodId || m.product_id === prodId)
+        .filter((m) => !respFiltro || (m.responsavel ?? "") === respFiltro)
+        .filter((m) => !tipoSaidaFiltro || (m.destino ?? "") === tipoSaidaFiltro)
+        .filter((m) => {
+          if (origemMovFiltro === "todas") return true;
+          const meta = parseBarcodeMovementMeta(m);
+          return origemMovFiltro === "codigo_barras" ? meta.isBarcodeExit : !meta.isBarcodeExit;
+        })
         .map((m) => {
           const p = pmap.get(m.product_id);
+          const meta = parseBarcodeMovementMeta(m);
           return [
-            fmtData(m.data),
+            fmtData(m.data) + (meta.horario ? ` ${meta.horario}` : ""),
             p?.nome ?? "",
+            meta.codigoBarras || p?.codigo_barras || "—",
             m.quantidade,
             p ? formatUnidade(p) : "",
             ORIGEM_LABEL[m.origem],
-            escola?.nome ?? "",
+            meta.origemMovimentacaoLabel,
             m.destino ?? "",
             m.responsavel ?? "",
-            m.observacoes ?? "",
+            escola?.nome ?? "",
           ];
         });
     } else if (tipo === "disponiveis") {
@@ -301,19 +334,29 @@ function Relatorios() {
           if (m.origem === "mercado") sm += q;
           else sa += q;
           if (m.data >= start) {
+            const meta = parseBarcodeMovementMeta(m);
             rows.push([
-              fmtData(m.data),
+              fmtData(m.data) + (meta.horario ? ` ${meta.horario}` : ""),
               isSaldoInicial(m)
-                ? "Saldo Inicial Importado"
-                : m.tipo === "entrada"
-                  ? "Entrada"
-                  : "Saída",
+                ? "Saldo Inicial"
+                : meta.isBarcodeExit
+                  ? "Saída por código de barras"
+                  : m.tipo === "entrada"
+                    ? "Entrada"
+                    : "Saída",
               ORIGEM_LABEL[m.origem],
               q,
               sm,
               sa,
               sm + sa,
-              [m.fornecedor, m.nota_fiscal, m.destino, parseMovObservacoes(m.observacoes).texto]
+              [
+                meta.codigoBarras ? `EAN: ${meta.codigoBarras}` : "",
+                m.responsavel ? `Resp.: ${m.responsavel}` : "",
+                m.fornecedor,
+                m.nota_fiscal,
+                m.destino,
+                meta.isBarcodeExit ? meta.textoLimpo : parseMovObservacoes(m.observacoes).texto,
+              ]
                 .filter(Boolean)
                 .join(" · "),
             ]);
@@ -326,9 +369,11 @@ function Relatorios() {
     tipo,
     mes,
     ano,
-    semanaIdx,
     activeWeek,
     prodId,
+    respFiltro,
+    tipoSaidaFiltro,
+    origemMovFiltro,
     prods.data,
     movs.data,
     allMovs.data,
@@ -376,15 +421,56 @@ function Relatorios() {
             ))}
           </NSelect>
         )}
-        {tipo === "historico" && (
+        {(tipo === "historico" || tipo === "saidas") && (
           <NSelect value={prodId} onChange={(e) => setProdId(e.target.value)} className="w-56">
-            <option value="">Selecione o produto…</option>
+            <option value="">
+              {tipo === "historico" ? "Selecione o produto…" : "Todos os produtos"}
+            </option>
             {(prods.data ?? []).map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nome}
               </option>
             ))}
           </NSelect>
+        )}
+        {tipo === "saidas" && (
+          <>
+            <NSelect
+              value={respFiltro}
+              onChange={(e) => setRespFiltro(e.target.value)}
+              className="w-48"
+            >
+              <option value="">Todos os funcionários</option>
+              {responsaveisLista.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </NSelect>
+            <NSelect
+              value={tipoSaidaFiltro}
+              onChange={(e) => setTipoSaidaFiltro(e.target.value)}
+              className="w-48"
+            >
+              <option value="">Todos os tipos de saída</option>
+              {finalidadesLista.map((fin) => (
+                <option key={fin} value={fin}>
+                  {fin}
+                </option>
+              ))}
+            </NSelect>
+            <NSelect
+              value={origemMovFiltro}
+              onChange={(e) =>
+                setOrigemMovFiltro(e.target.value as "todas" | "codigo_barras" | "manual")
+              }
+              className="w-52"
+            >
+              <option value="todas">Todas as origens de mov.</option>
+              <option value="codigo_barras">Saída por código de barras</option>
+              <option value="manual">Lançamento manual</option>
+            </NSelect>
+          </>
         )}
       </div>
       <DocView
