@@ -10,6 +10,7 @@ import {
 } from "@/lib/app-context";
 import {
   computeMensal,
+  computeResumoEstoqueAnterior,
   computeSaldos,
   computeSemanal,
   fmtData,
@@ -40,6 +41,7 @@ export const Route = createFileRoute("/_authenticated/relatorios")({
 });
 
 const TIPOS = {
+  estoque_anterior: "Relatório de Estoque Anterior (Saldo Inicial / Abertura)",
   semanal: "Relatório semanal de merenda",
   mensal: "Relatório mensal de merenda",
   entradas: "Relatório de entradas (compras e recebimentos)",
@@ -49,7 +51,7 @@ const TIPOS = {
   mercado: "Relatório de produtos adquiridos no Mercado",
   consumo_escola: "Relatório de consumo por unidade escolar",
   validade: "Relatório de produtos vencidos ou próximos do vencimento",
-  saldo_inicial: "Relatório de Saldo Inicial Importado",
+  saldo_inicial: "Relatório detalhado de lançamentos de Saldo Inicial",
   historico: "Histórico de movimentação por produto",
 } as const;
 type Tipo = keyof typeof TIPOS;
@@ -79,7 +81,27 @@ function Relatorios() {
     let columns: string[] = [];
     let rows: Cell[][] = [];
 
-    if (tipo === "mensal") {
+    if (tipo === "estoque_anterior") {
+      const resumos = computeResumoEstoqueAnterior(ps, ms);
+      columns = [
+        "Nome dos Produtos",
+        "Quantidade Inicial",
+        "Unidade de Medida",
+        "Qtd. Mercado",
+        "Qtd. Agricultura Familiar",
+        "Data do Levantamento",
+        "Responsável pelo Lançamento",
+      ];
+      rows = resumos.map((r) => [
+        r.nome,
+        r.quantidade_inicial,
+        r.unidade,
+        r.quantidade_mercado,
+        r.quantidade_agricultura,
+        fmtData(r.data_levantamento),
+        r.responsavel || escola?.responsavel || "—",
+      ]);
+    } else if (tipo === "mensal") {
       const f = (fechs.data ?? []).find((x) => x.ano === ano && x.mes === mes);
       const linhas = f ? (f.snapshot as LinhaMensal[]) : computeMensal(ps, ms, ano, mes);
       columns = COLS_MENSAL;

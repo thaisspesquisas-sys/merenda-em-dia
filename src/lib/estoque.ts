@@ -1,7 +1,17 @@
 export type Origem = "mercado" | "agricultura";
 export type Unidade = "kg" | "L" | "un";
 export type UnidadeApresentacao =
-  "kg" | "L" | "un" | "pacote" | "caixa" | "fardo" | "lata" | "saco" | "bandeja" | "garrafa";
+  | "kg"
+  | "L"
+  | "un"
+  | "pacote"
+  | "caixa"
+  | "duzia"
+  | "fardo"
+  | "lata"
+  | "saco"
+  | "bandeja"
+  | "garrafa";
 
 export interface ProdutoMeta {
   unidade_apresentacao?: UnidadeApresentacao;
@@ -73,7 +83,26 @@ export interface Saldo {
   total: number;
 }
 
+export interface ResumoEstoqueAnterior {
+  product_id: string;
+  nome: string;
+  categoria: string;
+  unidade: string;
+  quantidade_mercado: number;
+  quantidade_agricultura: number;
+  quantidade_inicial: number;
+  entradas_posteriores: number;
+  saidas_posteriores: number;
+  saldo_atual: number;
+  data_levantamento: string;
+  responsavel: string;
+  observacoes: string;
+  movimento_mercado_id?: string;
+  movimento_agricultura_id?: string;
+}
+
 export const SALDO_INICIAL_TAG = "SALDO INICIAL IMPORTADO";
+export const ESTOQUE_ANTERIOR_TAG = "ESTOQUE ANTERIOR (SALDO DE ABERTURA)";
 
 export function isSaldoInicial(
   m: Pick<Movimento, "nota_fiscal" | "destino" | "fornecedor" | "observacoes">,
@@ -84,10 +113,15 @@ export function isSaldoInicial(
   const obs = (m.observacoes ?? "").toUpperCase();
   return (
     nf.includes("SALDO INICIAL") ||
+    nf.includes("ESTOQUE ANTERIOR") ||
+    nf.includes("ESTOQUE DE ABERTURA") ||
     nf === "SALDO_INICIAL_IMPORTADO" ||
     dest === "SALDO_INICIAL" ||
-    forn.includes("SALDO INICIAL IMPORTADO") ||
-    obs.includes("[SALDO_INICIAL_IMPORTADO]")
+    dest === "ESTOQUE_ANTERIOR" ||
+    forn.includes("SALDO INICIAL") ||
+    forn.includes("ESTOQUE ANTERIOR") ||
+    obs.includes("[SALDO_INICIAL_IMPORTADO]") ||
+    obs.includes("[ESTOQUE_ANTERIOR]")
   );
 }
 
@@ -298,6 +332,75 @@ export function computeSemanal(
   }));
 }
 
+/** Consolida o Estoque Anterior (Saldo Inicial / Estoque de Abertura) por produto,
+ * separando as quantidades de Mercado e Agricultura Familiar e calculando em tempo real
+ * a integração com Entradas posteriores, Saídas e Saldo Atual.
+ */
+export function computeResumoEstoqueAnterior(
+  produtos: Produto[],
+  movs: Movimento[],
+): ResumoEstoqueAnterior[] {
+  const map = new Map<string, ResumoEstoqueAnterior>();
+
+  for (const p of produtos) {
+    map.set(p.id, {
+      product_id: p.id,
+      nome: p.nome,
+      categoria: p.categoria,
+      unidade: formatUnidade(p),
+      quantidade_mercado: 0,
+      quantidade_agricultura: 0,
+      quantidade_inicial: 0,
+      entradas_posteriores: 0,
+      saidas_posteriores: 0,
+      saldo_atual: 0,
+      data_levantamento: "",
+      responsavel: "",
+      observacoes: "",
+    });
+  }
+
+  for (const m of movs) {
+    const row = map.get(m.product_id);
+    if (!row) continue;
+    const q = Number(m.quantidade);
+    if (m.tipo === "entrada" && isSaldoInicial(m)) {
+      if (m.origem === "mercado") {
+        row.quantidade_mercado = r(row.quantidade_mercado + q);
+        row.movimento_mercado_id = m.id;
+      } else {
+        row.quantidade_agricultura = r(row.quantidade_agricultura + q);
+        row.movimento_agricultura_id = m.id;
+      }
+      if (!row.data_levantamento || m.data > row.data_levantamento) {
+        row.data_levantamento = m.data;
+      }
+      if (m.responsavel) {
+        row.responsavel = m.responsavel;
+      }
+      const parsed = parseMovObservacoes(m.observacoes);
+      if (parsed.texto && !row.observacoes.includes(parsed.texto)) {
+        row.observacoes = row.observacoes ? `${row.observacoes}; ${parsed.texto}` : parsed.texto;
+      }
+    } else if (m.tipo === "entrada") {
+      row.entradas_posteriores = r(row.entradas_posteriores + q);
+    } else if (m.tipo === "saida") {
+      row.saidas_posteriores = r(row.saidas_posteriores + q);
+    }
+  }
+
+  const out: ResumoEstoqueAnterior[] = [];
+  for (const row of map.values()) {
+    row.quantidade_inicial = r(row.quantidade_mercado + row.quantidade_agricultura);
+    row.saldo_atual = r(row.quantidade_inicial + row.entradas_posteriores - row.saidas_posteriores);
+    if (row.quantidade_inicial > 0 || row.movimento_mercado_id || row.movimento_agricultura_id) {
+      out.push(row);
+    }
+  }
+
+  return out.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
 export const ORIGEM_LABEL: Record<Origem, string> = {
   mercado: "Mercado",
   agricultura: "Agricultura Familiar",
@@ -311,6 +414,7 @@ export const UNIDADE_APRESENTACAO_LABEL: Record<UnidadeApresentacao, string> = {
   un: "Unidade (un)",
   pacote: "Pacote (pct)",
   caixa: "Caixa (cx)",
+  duzia: "Dúzia (dz)",
   fardo: "Fardo",
   lata: "Lata",
   saco: "Saco",
@@ -324,6 +428,7 @@ export const UNIDADES_APRESENTACAO: UnidadeApresentacao[] = [
   "un",
   "pacote",
   "caixa",
+  "duzia",
   "fardo",
   "lata",
   "saco",
@@ -397,11 +502,12 @@ export function parseMovObservacoes(obs?: string | null): {
   if (!obs) return { texto: "" };
   const validadeMatch = obs.match(/\[VALIDADE:(\d{4}-\d{2}-\d{2})\]/i);
   const loteMatch = obs.match(/\[LOTE:([^\]]+)\]/i);
-  const saldoInicial = /\[SALDO_INICIAL_IMPORTADO\]/i.test(obs);
+  const saldoInicial = /\[SALDO_INICIAL_IMPORTADO\]|\[ESTOQUE_ANTERIOR\]/i.test(obs);
   const texto = obs
     .replace(/\[VALIDADE:[^\]]+\]/gi, "")
     .replace(/\[LOTE:[^\]]+\]/gi, "")
     .replace(/\[SALDO_INICIAL_IMPORTADO\]/gi, "")
+    .replace(/\[ESTOQUE_ANTERIOR\]/gi, "")
     .trim();
   return {
     texto,

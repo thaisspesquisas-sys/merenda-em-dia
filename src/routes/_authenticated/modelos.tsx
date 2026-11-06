@@ -20,12 +20,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useApp } from "@/lib/app-context";
 import { pageMeta } from "@/lib/page-meta";
-import {
-  DOCUMENT_CATEGORIES,
-  emptyContent,
-  contentOf,
-  type DocumentContent,
-} from "@/lib/document-model";
+import { DOCUMENT_CATEGORIES, emptyContent, contentOf, type DocumentContent } from "@/lib/document-model";
 import { interpretDocument, type ImportResult } from "@/lib/document-import";
 import { exportDocument } from "@/lib/document-export";
 import { COLS_MENSAL } from "@/lib/report-cols";
@@ -214,9 +209,7 @@ function Models() {
           status: approve ? "aprovado" : "rascunho",
           source_path: sourcePath,
           source_name: file?.name ?? null,
-          change_note:
-            note ||
-            (approve ? `Versão ${nextVer} aprovada após conferência` : "Rascunho importado"),
+          change_note: note || (approve ? `Versão ${nextVer} aprovada após conferência` : "Rascunho importado"),
         })
         .select("id")
         .single();
@@ -245,11 +238,7 @@ function Models() {
     }
   }
 
-  async function restaurarVersaoAnterior(
-    mId: string,
-    oldVersionContent: unknown,
-    oldVerNum: number,
-  ) {
+  async function restaurarVersaoAnterior(mId: string, oldVersionContent: unknown, oldVerNum: number) {
     if (
       !confirm(
         `Restaurar a versão v${oldVerNum} como uma nova versão ativa? Todas as versões anteriores continuarão preservadas no histórico.`,
@@ -279,16 +268,9 @@ function Models() {
   }
 
   async function archiveModel(id: string) {
-    if (
-      !confirm(
-        "Arquivar o modelo? Documentos e versões anteriores continuarão integralmente preservados.",
-      )
-    )
+    if (!confirm("Arquivar o modelo? Documentos e versões anteriores continuarão integralmente preservados."))
       return;
-    const { error } = await supabase
-      .from("document_models")
-      .update({ archived: true })
-      .eq("id", id);
+    const { error } = await supabase.from("document_models").update({ archived: true }).eq("id", id);
     if (error) toast.error(error.message);
     else void qc.invalidateQueries({ queryKey: ["models"] });
   }
@@ -316,11 +298,9 @@ function Models() {
               <Sparkles className="h-4 w-4" /> Inteligência de Adaptação Documental da Secretaria
             </div>
             <p className="text-xs text-muted-foreground">
-              Envie arquivos{" "}
-              <b>Excel (.xlsx, .xls), PDF, Word (.docx, .doc), CSV ou Imagens (JPG, PNG)</b>. A IA
-              lê títulos, cabeçalhos, colunas, fórmulas e tabelas (inclusive por OCR), mapeia
-              automaticamente os campos e apresenta uma prévia completa para conferência e aprovação
-              antes de oficializar o modelo.
+              Envie arquivos <b>Excel (.xlsx, .xls), PDF, Word (.docx, .doc), CSV ou Imagens (JPG, PNG)</b>. A IA lê
+              títulos, cabeçalhos, colunas, fórmulas e tabelas (inclusive por OCR), mapeia automaticamente os campos e
+              apresenta uma prévia completa para conferência e aprovação antes de oficializar o modelo.
             </p>
           </div>
           {canManage && (
@@ -335,10 +315,7 @@ function Models() {
         <Button variant={scope === "rede" ? "default" : "outline"} onClick={() => setScope("rede")}>
           Modelos Oficiais da Secretaria (Rede)
         </Button>
-        <Button
-          variant={scope === "escola" ? "default" : "outline"}
-          onClick={() => setScope("escola")}
-        >
+        <Button variant={scope === "escola" ? "default" : "outline"} onClick={() => setScope("escola")}>
           Modelos Adaptados da Unidade Escolar
         </Button>
       </div>
@@ -356,12 +333,8 @@ function Models() {
           ))}
         </NSelect>
         <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={archived}
-            onChange={(e) => setArchived(e.target.checked)}
-          />{" "}
-          Mostrar arquivados
+          <input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> Mostrar
+          arquivados
         </label>
       </div>
 
@@ -387,15 +360,12 @@ function Models() {
               <article key={m.id} className="rounded-xl border bg-card p-5 shadow-card">
                 <div className="mb-3 flex items-center justify-between">
                   <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                      scope === "rede"
-                        ? "bg-primary/10 text-primary"
-                        : "bg-agricultura-soft text-agricultura"
-                    }`}
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${scope === "rede"
+                      ? "bg-primary/10 text-primary"
+                      : "bg-agricultura-soft text-agricultura"
+                      }`}
                   >
-                    {scope === "rede"
-                      ? "Padrão Oficial da Secretaria"
-                      : "Modelo da Unidade Escolar"}
+                    {scope === "rede" ? "Padrão Oficial da Secretaria" : "Modelo da Unidade Escolar"}
                   </span>
                   {isDefault && (
                     <span className="flex items-center gap-1 rounded-full bg-entrada-soft px-2.5 py-0.5 text-xs font-semibold text-entrada">
@@ -411,8 +381,7 @@ function Models() {
 
                 {latest && adopted && latest.id !== adopted.version_id && (
                   <p className="mt-3 text-sm font-semibold text-warning">
-                    Nova versão oficial v{latest.version} disponível. Documentos anteriores
-                    permanecem preservados.
+                    Nova versão oficial v{latest.version} disponível. Documentos anteriores permanecem preservados.
                   </p>
                 )}
 
@@ -452,16 +421,11 @@ function Models() {
                         if (error) toast.error(error.message);
                         else {
                           await qc.invalidateQueries({ queryKey: ["adoptions"] });
-                          toast.success(
-                            `Modelo "${m.name}" (v${latest.version}) definido como padrão!`,
-                          );
+                          toast.success(`Modelo "${m.name}" (v${latest.version}) definido como padrão!`);
                         }
                       }}
                     >
-                      <Check className="h-4 w-4" />{" "}
-                      {isDefault
-                        ? `Padrão v${latest.version}`
-                        : `Definir Padrão v${latest.version}`}
+                      <Check className="h-4 w-4" /> {isDefault ? `Padrão v${latest.version}` : `Definir Padrão v${latest.version}`}
                     </Button>
                   )}
                   {canManage && v && (
@@ -518,9 +482,7 @@ function Models() {
                           <b>v{old.version}</b> ({old.status}) ·{" "}
                           {new Date(old.created_at).toLocaleString("pt-BR")} ·{" "}
                           {old.change_note || "Sem observações"}
-                          {old.source_name && (
-                            <span className="ml-1 text-muted-foreground">({old.source_name})</span>
-                          )}
+                          {old.source_name && <span className="ml-1 text-muted-foreground">({old.source_name})</span>}
                         </div>
                         <div className="flex flex-wrap gap-1">
                           <Button
@@ -539,9 +501,7 @@ function Models() {
                             <Button
                               variant="link"
                               size="sm"
-                              onClick={() =>
-                                void restaurarVersaoAnterior(m.id, old.content, old.version)
-                              }
+                              onClick={() => void restaurarVersaoAnterior(m.id, old.content, old.version)}
                             >
                               <RotateCcw className="mr-1 h-3 w-3" /> Restaurar versão
                             </Button>
@@ -566,11 +526,7 @@ function Models() {
                               variant="link"
                               size="sm"
                               onClick={async () => {
-                                if (
-                                  !confirm(
-                                    "Confirma a revisão e aprovação desta versão como modelo oficial?",
-                                  )
-                                )
+                                if (!confirm("Confirma a revisão e aprovação desta versão como modelo oficial?"))
                                   return;
                                 const { error } = await supabase
                                   .from("model_versions")
@@ -595,8 +551,8 @@ function Models() {
 
       {q.data?.length === 0 && (
         <Panel className="py-10 text-center text-muted-foreground">
-          Nenhum modelo cadastrado ainda. Clique em <b>Importar / Criar Modelo</b> para enviar uma
-          planilha ou documento da Secretaria.
+          Nenhum modelo cadastrado ainda. Clique em <b>Importar / Criar Modelo</b> para enviar uma planilha ou documento
+          da Secretaria.
         </Panel>
       )}
 
@@ -653,13 +609,11 @@ function Models() {
               >
                 <Button variant="outline" disabled={busy} onClick={() => input.current?.click()}>
                   <Upload className="h-4 w-4" />{" "}
-                  {busy
-                    ? "Analisando documento com IA e OCR…"
-                    : "1. Selecionar Planilha ou Documento da Secretaria"}
+                  {busy ? "Analisando documento com IA e OCR…" : "1. Selecionar Planilha ou Documento da Secretaria"}
                 </Button>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Formatos suportados: Excel (.xlsx, .xls), PDF, Word (.docx, .doc), CSV e Imagens
-                  digitalizadas (JPG, PNG) · até 10 MB
+                  Formatos suportados: Excel (.xlsx, .xls), PDF, Word (.docx, .doc), CSV e Imagens digitalizadas (JPG,
+                  PNG) · até 10 MB
                 </p>
               </div>
             </div>
@@ -672,18 +626,10 @@ function Models() {
                   <Sparkles className="h-4 w-4" /> Diagnóstico Estrutural da IA
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => adaptarParaPadraoControle("mensal")}
-                  >
+                  <Button size="sm" variant="outline" onClick={() => adaptarParaPadraoControle("mensal")}>
                     Gerar como Modelo Mensal
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => adaptarParaPadraoControle("semanal")}
-                  >
+                  <Button size="sm" variant="outline" onClick={() => adaptarParaPadraoControle("semanal")}>
                     Gerar como Modelo Semanal
                   </Button>
                 </div>
@@ -710,9 +656,7 @@ function Models() {
 
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="rounded-lg border bg-card p-3 text-xs">
-                  <div className="font-semibold text-foreground">
-                    Campos Obrigatórios Identificados
-                  </div>
+                  <div className="font-semibold text-foreground">Campos Obrigatórios Identificados</div>
                   <ul className="mt-1 list-inside list-disc text-muted-foreground">
                     {imported.aiAnalysis.mandatoryFields.map((fName) => (
                       <li key={fName}>{fName}</li>
@@ -720,9 +664,7 @@ function Models() {
                   </ul>
                 </div>
                 <div className="rounded-lg border bg-card p-3 text-xs">
-                  <div className="font-semibold text-foreground">
-                    Campos Opcionais / Complementares
-                  </div>
+                  <div className="font-semibold text-foreground">Campos Opcionais / Complementares</div>
                   <ul className="mt-1 list-inside list-disc text-muted-foreground">
                     {imported.aiAnalysis.optionalFields.map((fName) => (
                       <li key={fName}>{fName}</li>
@@ -734,9 +676,7 @@ function Models() {
                   <div className="mt-1 space-y-1 text-muted-foreground">
                     {imported.aiAnalysis.columnMappings.slice(0, 6).map((cm) => (
                       <div key={cm.columnIndex} className="flex items-center justify-between">
-                        <span className="truncate font-medium text-foreground">
-                          {cm.originalHeader}
-                        </span>
+                        <span className="truncate font-medium text-foreground">{cm.originalHeader}</span>
                         <span className="ml-2 text-[11px] text-primary">→ {cm.fieldLabel}</span>
                       </div>
                     ))}
@@ -747,8 +687,8 @@ function Models() {
               {imported.aiAnalysis.formulas.length > 0 && (
                 <div className="rounded-lg border bg-card p-3 text-xs">
                   <div className="mb-1 flex items-center gap-1.5 font-semibold text-foreground">
-                    <Calculator className="h-3.5 w-3.5 text-primary" /> Fórmulas e Cálculos
-                    Reconhecidos no Excel ({imported.aiAnalysis.formulas.length})
+                    <Calculator className="h-3.5 w-3.5 text-primary" /> Fórmulas e Cálculos Reconhecidos no Excel (
+                    {imported.aiAnalysis.formulas.length})
                   </div>
                   <div className="grid gap-1 sm:grid-cols-2 md:grid-cols-3">
                     {imported.aiAnalysis.formulas.slice(0, 9).map((fm) => (
@@ -848,8 +788,8 @@ function Models() {
                     checked={confirmed}
                     onChange={(e) => setConfirmed(e.target.checked)}
                   />
-                  <CheckCircle2 className="h-4 w-4 text-primary" /> Conferi a prévia, os campos,
-                  colunas e cálculos; autorizo aprovar este documento como modelo oficial.
+                  <CheckCircle2 className="h-4 w-4 text-primary" /> Conferi a prévia, os campos, colunas e cálculos;
+                  autorizo aprovar este documento como modelo oficial.
                 </label>
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
                   <input
@@ -857,22 +797,14 @@ function Models() {
                     checked={setAsDefault}
                     onChange={(e) => setSetAsDefault(e.target.checked)}
                   />
-                  Definir automaticamente como modelo padrão para os próximos controles desta
-                  unidade.
+                  Definir automaticamente como modelo padrão para os próximos controles desta unidade.
                 </label>
               </div>
               <div className="flex justify-end gap-2">
-                <Button
-                  variant="outline"
-                  disabled={busy || !name.trim()}
-                  onClick={() => void save(false)}
-                >
+                <Button variant="outline" disabled={busy || !name.trim()} onClick={() => void save(false)}>
                   Salvar rascunho para revisão
                 </Button>
-                <Button
-                  disabled={busy || !confirmed || !name.trim()}
-                  onClick={() => void save(true)}
-                >
+                <Button disabled={busy || !confirmed || !name.trim()} onClick={() => void save(true)}>
                   <Check className="h-4 w-4" /> Aprovar e Oficializar Modelo
                 </Button>
               </div>

@@ -3,6 +3,7 @@ import { pageMeta } from "@/lib/page-meta";
 import { useMemo } from "react";
 import {
   AlertTriangle,
+  ArchiveRestore,
   ArrowDownToLine,
   ArrowUpFromLine,
   CalendarClock,
@@ -173,6 +174,11 @@ function Painel() {
   return (
     <div className="space-y-6">
       <PageHeader title="Painel de Controle da Merenda Escolar" desc={escola.nome}>
+        <Button asChild size="sm">
+          <Link to="/estoque-anterior">
+            <ArchiveRestore className="h-4 w-4" /> Lançar Estoque Anterior
+          </Link>
+        </Button>
         <Button asChild variant="outline" size="sm">
           <Link to="/importar-estoque">
             <Upload className="h-4 w-4" /> Importar Estoque Existente

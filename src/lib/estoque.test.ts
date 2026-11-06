@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   computeMensal,
+  computeResumoEstoqueAnterior,
   computeSaldos,
   computeSemanal,
+  ESTOQUE_ANTERIOR_TAG,
   isSaldoInicial,
   SALDO_INICIAL_TAG,
   type Movimento,
@@ -169,5 +171,42 @@ describe("inteligência artificial de documentos e migração de estoque", () =>
     );
     expect(evaluated[0]?.issues).toContain("divergencia_estoque");
     expect(evaluated[0]?.estoqueSistemaAtual).toBe(30);
+  });
+
+  it("consolida Estoque Anterior dividido por origem (Mercado + Agricultura Familiar) e integra com entradas e saídas", () => {
+    const movsAbertura: Movimento[] = [
+      {
+        ...mv("2026-11-01", "entrada", 40, "mercado"),
+        nota_fiscal: ESTOQUE_ANTERIOR_TAG,
+        destino: "SALDO_INICIAL",
+        responsavel: "Maria Diretora",
+      },
+      {
+        ...mv("2026-11-01", "entrada", 25, "agricultura"),
+        nota_fiscal: ESTOQUE_ANTERIOR_TAG,
+        destino: "SALDO_INICIAL",
+        responsavel: "Maria Diretora",
+      },
+      mv("2026-11-03", "entrada", 15, "mercado"),
+      mv("2026-11-04", "saida", 10, "agricultura"),
+    ];
+
+    const resumo = computeResumoEstoqueAnterior([arroz], movsAbertura);
+    expect(resumo.length).toBe(1);
+    expect(resumo[0]?.quantidade_mercado).toBe(40);
+    expect(resumo[0]?.quantidade_agricultura).toBe(25);
+    expect(resumo[0]?.quantidade_inicial).toBe(65);
+    expect(resumo[0]?.entradas_posteriores).toBe(15);
+    expect(resumo[0]?.saidas_posteriores).toBe(10);
+    expect(resumo[0]?.saldo_atual).toBe(70);
+
+    // Garante que na planilha mensal o Estoque Anterior não entra como compra/entrada do mês
+    const mensalNov = computeMensal([arroz], movsAbertura, 2026, 11)[0]!;
+    expect(mensalNov.ant_m).toBe(40);
+    expect(mensalNov.ant_a).toBe(25);
+    expect(mensalNov.ant_t).toBe(65);
+    expect(mensalNov.ent_t).toBe(15);
+    expect(mensalNov.sai_t).toBe(10);
+    expect(mensalNov.fim_t).toBe(70);
   });
 });

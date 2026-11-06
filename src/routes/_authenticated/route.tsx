@@ -16,6 +16,7 @@ import {
   X,
   Sparkles,
   Upload,
+  ArchiveRestore,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -86,6 +87,7 @@ function Pendente() {
 
 const NAV = [
   { to: "/painel", label: "Painel de Controle", icon: LayoutDashboard },
+  { to: "/estoque-anterior", label: "Estoque Anterior (Inicial)", icon: ArchiveRestore },
   { to: "/modelos", label: "Importar Modelos e Docs", icon: Sparkles },
   { to: "/importar-estoque", label: "Importar Estoque Existente", icon: Upload },
   { to: "/entradas", label: "Controle de Entradas", icon: ArrowDownToLine },

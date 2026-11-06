@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedEntradasRouteImport } from './routes/_authenticated/entradas'
 import { Route as AuthenticatedEscolasRouteImport } from './routes/_authenticated/escolas'
+import { Route as AuthenticatedEstoqueAnteriorRouteImport } from './routes/_authenticated/estoque-anterior'
 import { Route as AuthenticatedFechamentoRouteImport } from './routes/_authenticated/fechamento'
 import { Route as AuthenticatedImportarEstoqueRouteImport } from './routes/_authenticated/importar-estoque'
 import { Route as AuthenticatedModelosRouteImport } from './routes/_authenticated/modelos'
@@ -47,6 +48,12 @@ const AuthenticatedEscolasRoute = AuthenticatedEscolasRouteImport.update({
   path: '/escolas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedEstoqueAnteriorRoute =
+  AuthenticatedEstoqueAnteriorRouteImport.update({
+    id: '/estoque-anterior',
+    path: '/estoque-anterior',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedFechamentoRoute = AuthenticatedFechamentoRouteImport.update({
   id: '/fechamento',
   path: '/fechamento',
@@ -94,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/entradas': typeof AuthenticatedEntradasRoute
   '/escolas': typeof AuthenticatedEscolasRoute
+  '/estoque-anterior': typeof AuthenticatedEstoqueAnteriorRoute
   '/fechamento': typeof AuthenticatedFechamentoRoute
   '/importar-estoque': typeof AuthenticatedImportarEstoqueRoute
   '/modelos': typeof AuthenticatedModelosRoute
@@ -108,6 +116,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/entradas': typeof AuthenticatedEntradasRoute
   '/escolas': typeof AuthenticatedEscolasRoute
+  '/estoque-anterior': typeof AuthenticatedEstoqueAnteriorRoute
   '/fechamento': typeof AuthenticatedFechamentoRoute
   '/importar-estoque': typeof AuthenticatedImportarEstoqueRoute
   '/modelos': typeof AuthenticatedModelosRoute
@@ -124,6 +133,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/entradas': typeof AuthenticatedEntradasRoute
   '/_authenticated/escolas': typeof AuthenticatedEscolasRoute
+  '/_authenticated/estoque-anterior': typeof AuthenticatedEstoqueAnteriorRoute
   '/_authenticated/fechamento': typeof AuthenticatedFechamentoRoute
   '/_authenticated/importar-estoque': typeof AuthenticatedImportarEstoqueRoute
   '/_authenticated/modelos': typeof AuthenticatedModelosRoute
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/entradas'
     | '/escolas'
+    | '/estoque-anterior'
     | '/fechamento'
     | '/importar-estoque'
     | '/modelos'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/entradas'
     | '/escolas'
+    | '/estoque-anterior'
     | '/fechamento'
     | '/importar-estoque'
     | '/modelos'
@@ -169,6 +181,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/entradas'
     | '/_authenticated/escolas'
+    | '/_authenticated/estoque-anterior'
     | '/_authenticated/fechamento'
     | '/_authenticated/importar-estoque'
     | '/_authenticated/modelos'
@@ -220,6 +233,13 @@ declare module '@tanstack/react-router' {
       path: '/escolas'
       fullPath: '/escolas'
       preLoaderRoute: typeof AuthenticatedEscolasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/estoque-anterior': {
+      id: '/_authenticated/estoque-anterior'
+      path: '/estoque-anterior'
+      fullPath: '/estoque-anterior'
+      preLoaderRoute: typeof AuthenticatedEstoqueAnteriorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/fechamento': {
@@ -284,6 +304,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedEntradasRoute: typeof AuthenticatedEntradasRoute
   AuthenticatedEscolasRoute: typeof AuthenticatedEscolasRoute
+  AuthenticatedEstoqueAnteriorRoute: typeof AuthenticatedEstoqueAnteriorRoute
   AuthenticatedFechamentoRoute: typeof AuthenticatedFechamentoRoute
   AuthenticatedImportarEstoqueRoute: typeof AuthenticatedImportarEstoqueRoute
   AuthenticatedModelosRoute: typeof AuthenticatedModelosRoute
@@ -297,6 +318,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedEntradasRoute: AuthenticatedEntradasRoute,
   AuthenticatedEscolasRoute: AuthenticatedEscolasRoute,
+  AuthenticatedEstoqueAnteriorRoute: AuthenticatedEstoqueAnteriorRoute,
   AuthenticatedFechamentoRoute: AuthenticatedFechamentoRoute,
   AuthenticatedImportarEstoqueRoute: AuthenticatedImportarEstoqueRoute,
   AuthenticatedModelosRoute: AuthenticatedModelosRoute,
